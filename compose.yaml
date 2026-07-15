@@ -17,7 +17,7 @@ services:
       - proxy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.allspeak-catalog.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.allspeak-catalog.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
       - traefik.http.routers.allspeak-catalog.entrypoints=web-secure
       - traefik.http.services.allspeak-catalog.loadbalancer.server.port=8080
 

@@ -37,13 +37,15 @@ func newTestServer(t *testing.T) *Server {
 func TestHealth(t *testing.T) {
 	s := newTestServer(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, req)
+	for _, path := range []string{"/health", "/api/health"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-	assert.JSONEq(t, `{"status":"ok"}`, rec.Body.String())
+		require.Equal(t, http.StatusOK, rec.Code, path)
+		assert.Equal(t, "application/json", rec.Header().Get("Content-Type"), path)
+		assert.JSONEq(t, `{"status":"ok"}`, rec.Body.String(), path)
+	}
 }
 
 func TestHealthNeedsNoToken(t *testing.T) {

@@ -19,7 +19,7 @@ URLs expire one hour after they are issued.
 
 | Method / path | Auth | Behavior |
 |---|---|---|
-| `GET /health` | none | `200 {"status":"ok"}` (outside `/api/v1`) |
+| `GET /health` | none | `200 {"status":"ok"}` (also at `/api/health` - the public URL behind the Traefik `/api` prefix) |
 | `GET /api/v1/catalog` | read | List sessions as `{"sessions":[{id, title, revision, updatedAt, totalSize, trackLabels[]}]}` |
 | `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET) and the response carries `urlsExpireAt`; `404` if unknown |
 | `POST /api/v1/uploads` | admin | Body `{"sessionId": "<uuid or null>", "files":[{"sha256","size","filename"}]}` (`files` must be non-empty); for a new session the server allocates and returns `sessionId`. Response `{"sessionId","files":[...]}`, per file `{"sha256","filename","exists":true}` or `{"sha256","filename","uploadUrl"}` (presigned PUT). Never touches the catalog table |
@@ -91,8 +91,10 @@ Zed users: the same tasks are exposed via `.zed/tasks.json` (task: spawn).
 ## Deploy
 
 The service runs on the droplet as a git checkout with `compose.yaml` at the repo root, behind the
-shared Traefik gateway (external docker network `proxy`, TLS terminated at the edge). Images are
-published to `ghcr.io/pkarpovich/allspeak-catalog` by the release workflow on push to `main`.
+shared Traefik gateway (external docker network `proxy`, TLS terminated at the edge). The router
+matches ``Host(`${DOMAIN}`) && PathPrefix(`/api`)`` - only `/api/*` is routed to this service, the
+domain root stays free for a future landing page on the same host. Images are published to
+`ghcr.io/pkarpovich/allspeak-catalog` by the release workflow on push to `main`.
 
 Deploys use [Spot](https://github.com/umputun/spot). The `deploy` task clones the repo if missing,
 `git pull`s, `docker compose pull`s the latest image, and `docker compose up -d`. The target host is
@@ -105,7 +107,7 @@ SSH_KEY=/path/to/other/key mise run deploy    # override the key
 ```
 
 On the droplet, `~/allspeak-catalog/.env` must contain `DOMAIN`, both auth tokens, the four `CF_*`
-R2 values, and `DB_PATH=/data/catalog.db`. After a deploy, `https://<domain>/health` should return
+R2 values, and `DB_PATH=/data/catalog.db`. After a deploy, `https://<domain>/api/health` should return
 `{"status":"ok"}` and Traefik should show the router.
 
 ## Smoke checklist
