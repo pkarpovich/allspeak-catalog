@@ -1,0 +1,20 @@
+[tools]
+go = "1.25"
+
+[env]
+_.file = ".env"
+
+[tasks.dev]
+run = "go run ./cmd/allspeak-catalog"
+
+[tasks.test]
+run = "go test ./... -race"
+
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.build]
+run = "CGO_ENABLED=0 go build -o allspeak-catalog ./cmd/allspeak-catalog"
+
+[tasks.deploy]
+run = 'spot -t deploy -v -i ./inventory.yml -k "${SSH_KEY:-$HOME/.ssh/id_ed25519}"'

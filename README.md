@@ -71,17 +71,20 @@ See `.env.example` for a copy-paste template.
 
 ## Local run
 
-```sh
-make test          # go test ./... -race
-make lint          # golangci-lint run
-make build         # static binary at ./allspeak-catalog
+Tooling is managed by [mise](https://mise.jdx.dev) (`mise.toml` pins Go and defines the tasks below);
+`mise install` once after cloning.
 
-# run against a local SQLite file and real R2 credentials
-export AUTH_ADMIN_TOKEN=... AUTH_READ_TOKEN=...
-export CF_ACCESS_KEY_ID=... CF_ACCESS_SECRET=... CF_ENDPOINT=... CF_BUCKET=...
-export DB_PATH=./catalog.db LISTEN_ADDR=:8080
-./allspeak-catalog
+```sh
+mise run test      # go test ./... -race
+mise run lint      # golangci-lint run
+mise run build     # static binary at ./allspeak-catalog
+
+# run against a local SQLite file and real R2 credentials:
+# fill .env (see .env.example) - mise loads it automatically - then
+mise run dev
 ```
+
+Zed users: the same tasks are exposed via `.zed/tasks.json` (task: spawn).
 
 `GET http://localhost:8080/health` should return `{"status":"ok"}`.
 
@@ -97,8 +100,8 @@ in `inventory.yml` (`lasso`).
 
 ```sh
 # from a machine with ssh access to the droplet
-make deploy_deploy                              # uses ~/.ssh/id_ed25519
-make deploy_deploy SSH_KEY=/path/to/other/key   # override the key
+mise run deploy                               # uses ~/.ssh/id_ed25519
+SSH_KEY=/path/to/other/key mise run deploy    # override the key
 ```
 
 On the droplet, `~/allspeak-catalog/.env` must contain `DOMAIN`, both auth tokens, the four `CF_*`

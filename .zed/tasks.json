@@ -1,0 +1,28 @@
+[
+  {
+    "label": "dev: run server",
+    "command": "mise run dev",
+    "reveal": "always",
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "test",
+    "command": "mise run test",
+    "reveal": "always"
+  },
+  {
+    "label": "lint",
+    "command": "mise run lint",
+    "reveal": "always"
+  },
+  {
+    "label": "build",
+    "command": "mise run build",
+    "reveal": "always"
+  },
+  {
+    "label": "deploy (spot -> lasso)",
+    "command": "mise run deploy",
+    "reveal": "always"
+  }
+]
