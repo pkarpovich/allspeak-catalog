@@ -304,12 +304,12 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `spot.yml`, `inventory.yml`
 - Modify: `Makefile`
 
-- [ ] `ci.yml`: on PR and push to main - `golangci-lint run` + `go test ./... -race`
-- [ ] `release.yml`: on push to main - docker build and push `ghcr.io/pkarpovich/allspeak-catalog` with `latest` + git-sha tags (`docker/build-push-action`, `GITHUB_TOKEN` permissions for packages)
-- [ ] `spot.yml`: a single task named `deploy` - clone `git@github.com:pkarpovich/allspeak-catalog.git` to `~/allspeak-catalog` if missing, `git pull`, `docker compose pull`, `docker compose up -d`
-- [ ] `inventory.yml` with the droplet host (`lasso`); Makefile: `SSH_KEY ?= $(HOME)/.ssh/id_ed25519` and `deploy_%: spot -t $* -v -i ./inventory.yml -k $(SSH_KEY)` (operator overrides `SSH_KEY` via env)
-- [ ] verify (deterministic, no external tools): `ci.yml` contains `pull_request` and `push` triggers for `main`, a `golangci-lint` step, and `go test ./... -race`; `release.yml` contains `docker/build-push-action` and `ghcr.io/pkarpovich/allspeak-catalog`; `spot.yml` defines exactly the `deploy` task with the four steps above (real workflow validation happens on the first push - Post-Completion)
-- [ ] run full test suite - must pass before task 12
+- [x] `ci.yml`: on PR and push to main - `golangci-lint run` + `go test ./... -race`
+- [x] `release.yml`: on push to main - docker build and push `ghcr.io/pkarpovich/allspeak-catalog` with `latest` + git-sha tags (`docker/build-push-action`, `GITHUB_TOKEN` permissions for packages)
+- [x] `spot.yml`: a single task named `deploy` - clone `git@github.com:pkarpovich/allspeak-catalog.git` to `~/allspeak-catalog` if missing, `git pull`, `docker compose pull`, `docker compose up -d`
+- [x] `inventory.yml` with the droplet host (`lasso`); Makefile: `SSH_KEY ?= $(HOME)/.ssh/id_ed25519` and `deploy_%: spot -t $* -v -i ./inventory.yml -k $(SSH_KEY)` (operator overrides `SSH_KEY` via env)
+- [x] verify (deterministic, no external tools): `ci.yml` contains `pull_request` and `push` triggers for `main`, a `golangci-lint` step, and `go test ./... -race`; `release.yml` contains `docker/build-push-action` and `ghcr.io/pkarpovich/allspeak-catalog`; `spot.yml` defines exactly the `deploy` task with the four steps above (real workflow validation happens on the first push - Post-Completion)
+- [x] run full test suite - must pass before task 12
 
 ### Task 12: Verify acceptance criteria
 

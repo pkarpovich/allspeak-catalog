@@ -1,0 +1,12 @@
+tasks:
+  - name: deploy
+    commands:
+      - name: clone repo if missing
+        script: |
+          test -d ~/allspeak-catalog/.git || git clone git@github.com:pkarpovich/allspeak-catalog.git ~/allspeak-catalog
+      - name: pull latest source
+        script: git -C ~/allspeak-catalog pull
+      - name: pull image
+        script: cd ~/allspeak-catalog && docker compose pull
+      - name: restart service
+        script: cd ~/allspeak-catalog && docker compose up -d
