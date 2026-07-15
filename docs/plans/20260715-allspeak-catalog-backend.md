@@ -206,12 +206,12 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `internal/store/store.go`, `internal/store/store_test.go`
 
-- [ ] `func New(path string) (*Store, error)` - opens SQLite via `modernc.org/sqlite`, enables WAL, creates the `sessions` table per the schema (idempotent)
-- [ ] `Session` struct: `ID, Title, Revision, CreatedAt, UpdatedAt`, `Manifest manifest.Manifest`
-- [ ] methods on `*Store` (all `ctx`-first): `Create` (insert with revision=1; id supplied by caller), `UpdateManifest` (bump revision +1, replace title+manifest, 404-style sentinel error if id unknown), `Get`, `List` (ordered by `created_at` desc), `Delete`
-- [ ] sentinel `ErrNotFound` for Get/UpdateManifest/Delete on unknown id
-- [ ] write tests on `t.TempDir()` SQLite: create/get round-trip incl. manifest JSON fidelity, revision increments, list ordering, delete, ErrNotFound cases, reopen-existing-file (idempotent schema)
-- [ ] run tests - must pass before task 4
+- [x] `func New(path string) (*Store, error)` - opens SQLite via `modernc.org/sqlite`, enables WAL, creates the `sessions` table per the schema (idempotent)
+- [x] `Session` struct: `ID, Title, Revision, CreatedAt, UpdatedAt`, `Manifest manifest.Manifest`
+- [x] methods on `*Store` (all `ctx`-first): `Create` (insert with revision=1; id supplied by caller), `UpdateManifest` (bump revision +1, replace title+manifest, 404-style sentinel error if id unknown), `Get`, `List` (ordered by `created_at` desc), `Delete`
+- [x] sentinel `ErrNotFound` for Get/UpdateManifest/Delete on unknown id (plus `ErrExists` for duplicate Create id, needed by the finalize 409 path in Task 8)
+- [x] write tests on `t.TempDir()` SQLite: create/get round-trip incl. manifest JSON fidelity, revision increments, list ordering, delete, ErrNotFound cases, reopen-existing-file (idempotent schema)
+- [x] run tests - must pass before task 4
 
 ### Task 4: R2 blob access (`internal/blob`)
 
