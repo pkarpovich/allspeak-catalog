@@ -321,8 +321,8 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 
 ### Task 13: Update documentation
 
-- [ ] README: purpose, API contract table, env-var table, local run instructions, deploy runbook (Spot), and the manual smoke checklist mirroring the anchor acceptance scenario (upload 3-track film via curl → catalog → presigned download + sha256 check → one-track revision 2)
-- [ ] move this plan to `docs/plans/completed/`
+- [x] README: purpose, API contract table, env-var table, local run instructions, deploy runbook (Spot), and the manual smoke checklist mirroring the anchor acceptance scenario (upload 3-track film via curl → catalog → presigned download + sha256 check → one-track revision 2)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
