@@ -181,65 +181,65 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `go.mod`, `.gitignore`, `.golangci.yml`, `Makefile`, `README.md`
 
-- [ ] `go mod init github.com/pkarpovich/allspeak-catalog`, Go 1.25
-- [ ] `.gitignore`: binaries, `.env`, `*.db`, coverage artifacts
-- [ ] `.golangci.yml` with the standard linter set used by the `go` skill conventions
-- [ ] `Makefile` targets: `lint`, `test` (with `-race`), `build`
-- [ ] `README.md` skeleton: one-paragraph purpose + placeholder sections (API, Config, Deploy, Smoke checklist)
-- [ ] run `golangci-lint run` on the empty module - clean baseline
+- [x] `go mod init github.com/pkarpovich/allspeak-catalog`, Go 1.25
+- [x] `.gitignore`: binaries, `.env`, `*.db`, coverage artifacts
+- [x] `.golangci.yml` with the standard linter set used by the `go` skill conventions
+- [x] `Makefile` targets: `lint`, `test` (with `-race`), `build`
+- [x] `README.md` skeleton: one-paragraph purpose + placeholder sections (API, Config, Deploy, Smoke checklist)
+- [x] run `golangci-lint run` on the empty module - clean baseline (`golangci-lint config verify` passes with zero findings; v2.12.2 exits non-zero on a source-less module only because there are no `.go` files yet, which clears in Task 2)
 
 ### Task 2: Manifest types and validation (`internal/manifest`)
 
 **Files:**
 - Create: `internal/manifest/manifest.go`, `internal/manifest/manifest_test.go`
 
-- [ ] types `Manifest`, `Track`, `FileRef` matching the wire shape in Technical Details (JSON tags camelCase)
-- [ ] `func (m Manifest) Validate() error` implementing every rule from "Validation rules"; errors name the offending field
-- [ ] `func SanitizeFilename(name string) (string, error)` per the sanitization rule
-- [ ] `func (m Manifest) Files() []FileRef` - flat list (tracks + subtitle) for iteration by api/blob callers
-- [ ] write table-driven tests for Validate: valid manifest, each individual rule violation
-- [ ] write tests for SanitizeFilename: path components, forbidden chars, empty result
-- [ ] run tests - must pass before task 3
+- [x] types `Manifest`, `Track`, `FileRef` matching the wire shape in Technical Details (JSON tags camelCase)
+- [x] `func (m Manifest) Validate() error` implementing every rule from "Validation rules"; errors name the offending field
+- [x] `func SanitizeFilename(name string) (string, error)` per the sanitization rule
+- [x] `func (m Manifest) Files() []FileRef` - flat list (tracks + subtitle) for iteration by api/blob callers
+- [x] write table-driven tests for Validate: valid manifest, each individual rule violation
+- [x] write tests for SanitizeFilename: path components, forbidden chars, empty result
+- [x] run tests - must pass before task 3
 
 ### Task 3: Catalog store (`internal/store`)
 
 **Files:**
 - Create: `internal/store/store.go`, `internal/store/store_test.go`
 
-- [ ] `func New(path string) (*Store, error)` - opens SQLite via `modernc.org/sqlite`, enables WAL, creates the `sessions` table per the schema (idempotent)
-- [ ] `Session` struct: `ID, Title, Revision, CreatedAt, UpdatedAt`, `Manifest manifest.Manifest`
-- [ ] methods on `*Store` (all `ctx`-first): `Create` (insert with revision=1; id supplied by caller), `UpdateManifest` (bump revision +1, replace title+manifest, 404-style sentinel error if id unknown), `Get`, `List` (ordered by `created_at` desc), `Delete`
-- [ ] sentinel `ErrNotFound` for Get/UpdateManifest/Delete on unknown id
-- [ ] write tests on `t.TempDir()` SQLite: create/get round-trip incl. manifest JSON fidelity, revision increments, list ordering, delete, ErrNotFound cases, reopen-existing-file (idempotent schema)
-- [ ] run tests - must pass before task 4
+- [x] `func New(path string) (*Store, error)` - opens SQLite via `modernc.org/sqlite`, enables WAL, creates the `sessions` table per the schema (idempotent)
+- [x] `Session` struct: `ID, Title, Revision, CreatedAt, UpdatedAt`, `Manifest manifest.Manifest`
+- [x] methods on `*Store` (all `ctx`-first): `Create` (insert with revision=1; id supplied by caller), `UpdateManifest` (bump revision +1, replace title+manifest, 404-style sentinel error if id unknown), `Get`, `List` (ordered by `created_at` desc), `Delete`
+- [x] sentinel `ErrNotFound` for Get/UpdateManifest/Delete on unknown id (plus `ErrExists` for duplicate Create id, needed by the finalize 409 path in Task 8)
+- [x] write tests on `t.TempDir()` SQLite: create/get round-trip incl. manifest JSON fidelity, revision increments, list ordering, delete, ErrNotFound cases, reopen-existing-file (idempotent schema)
+- [x] run tests - must pass before task 4
 
 ### Task 4: R2 blob access (`internal/blob`)
 
 **Files:**
 - Create: `internal/blob/blob.go`, `internal/blob/blob_test.go`
 
-- [ ] `Config` struct (endpoint, key id, secret, bucket) + `func New(cfg Config) (*Client, error)`
-- [ ] SDK wiring pinned for R2: `config.LoadDefaultConfig` with `config.WithRegion("auto")` and static credentials; endpoint via `s3.NewFromConfig(awsCfg, func(o *s3.Options) { o.BaseEndpoint = ... })` - not the deprecated endpoint-resolver API
-- [ ] disable default payload checksums: set `RequestChecksumCalculation` and `ResponseChecksumValidation` to `when_required` - otherwise (SDK >= v1.73, Jan 2025) presigned PUTs sign `x-amz-checksum-crc32` and a plain `curl -T` upload against R2 fails with a signature error
-- [ ] `func Key(sessionID, sha256, filename string) string` → `sessions/<id>/files/<sha256>-<filename>` (expects pre-sanitized filename); parameters go on a small struct per the signature rules if they exceed the budget
-- [ ] methods: `PresignPut(ctx, key) (string, error)`, `PresignGet(ctx, key) (string, error)` - both with the 1h package constant expiry; `Exists(ctx, key) (bool, error)` via HeadObject mapping NotFound → `(false, nil)`
-- [ ] write tests: Key formatting; presign methods produce URLs containing bucket, key, and expiry params (offline - no network)
-- [ ] write test: the presigned PUT carries no `x-amz-checksum-*` signed header or query parameter (guards the `when_required` setting)
-- [ ] write test: Exists error mapping via an injected HTTP stub or interface seam
-- [ ] run tests - must pass before task 5
+- [x] `Config` struct (endpoint, key id, secret, bucket) + `func New(cfg Config) (*Client, error)`
+- [x] SDK wiring pinned for R2: `config.LoadDefaultConfig` with `config.WithRegion("auto")` and static credentials; endpoint via `s3.NewFromConfig(awsCfg, func(o *s3.Options) { o.BaseEndpoint = ... })` - not the deprecated endpoint-resolver API
+- [x] disable default payload checksums: set `RequestChecksumCalculation` and `ResponseChecksumValidation` to `when_required` - otherwise (SDK >= v1.73, Jan 2025) presigned PUTs sign `x-amz-checksum-crc32` and a plain `curl -T` upload against R2 fails with a signature error
+- [x] `func Key(sessionID, sha256, filename string) string` → `sessions/<id>/files/<sha256>-<filename>` (expects pre-sanitized filename); parameters go on a small struct per the signature rules if they exceed the budget
+- [x] methods: `PresignPut(ctx, key) (string, error)`, `PresignGet(ctx, key) (string, error)` - both with the 1h package constant expiry; `Exists(ctx, key) (bool, error)` via HeadObject mapping NotFound → `(false, nil)`
+- [x] write tests: Key formatting; presign methods produce URLs containing bucket, key, and expiry params (offline - no network)
+- [x] write test: the presigned PUT carries no `x-amz-checksum-*` signed header or query parameter (guards the `when_required` setting)
+- [x] write test: Exists error mapping via an injected HTTP stub or interface seam
+- [x] run tests - must pass before task 5
 
 ### Task 5: HTTP server core - auth, health, logging (`internal/api`)
 
 **Files:**
 - Create: `internal/api/server.go`, `internal/api/auth.go`, `internal/api/server_test.go`, `internal/api/auth_test.go`
 
-- [ ] `Config` struct (admin token, read token, store iface, blob iface, logger) + `func NewServer(cfg Config) *Server` returning a `*Server` exposing `http.Handler`
-- [ ] consumer-side interfaces in this package: `sessionStore` (Create/UpdateManifest/Get/List/Delete) and `objectStore` (PresignPut/PresignGet/Exists) - defined here, satisfied by `internal/store` / `internal/blob`
-- [ ] auth middleware: bearer token, `crypto/subtle` comparison; read endpoints accept read or admin token; admin endpoints admin only; `401` vs `403` per the contract
-- [ ] request-logging middleware (slog: method, path, status, duration) and `GET /health` without auth
-- [ ] `go:generate` moq directives for both interfaces, mocks in `internal/api/mocks/`
-- [ ] write httptest tests: health without token; each auth outcome (missing, wrong, read-on-admin, admin-on-read) table-driven
-- [ ] run tests - must pass before task 6
+- [x] `Config` struct (admin token, read token, store iface, blob iface, logger) + `func NewServer(cfg Config) *Server` returning a `*Server` exposing `http.Handler` (via `Handler()`)
+- [x] consumer-side interfaces in this package: `SessionStore` (Create/UpdateManifest/Get/List/Delete) and `ObjectStore` (PresignPut/PresignGet/Exists) - defined here, satisfied by `internal/store` / `internal/blob`. Exported (not lowercase as first drafted) because moq mocks live in the sibling `internal/api/mocks/` package and same-package `api` tests must reference the exported `mocks.*Mock` types; interface-satisfaction is guarded by assertions in the test package
+- [x] auth middleware: bearer token, `crypto/subtle` comparison; read endpoints accept read or admin token; admin endpoints admin only; `401` vs `403` per the contract
+- [x] request-logging middleware (slog: method, path, status, duration) and `GET /health` without auth
+- [x] `go:generate` moq directives for both interfaces (`-skip-ensure` to avoid a mocks→api import cycle in same-package tests), mocks in `internal/api/mocks/`
+- [x] write httptest tests: health without token; each auth outcome (missing, wrong, read-on-admin, admin-on-read) table-driven
+- [x] run tests - must pass before task 6
 
 ### Task 6: Read endpoints - catalog list and session detail
 
@@ -247,10 +247,10 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/read.go`, `internal/api/read_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] `GET /api/v1/catalog`: map store.List to items `{id, title, revision, updatedAt, totalSize, trackLabels}` (totalSize = sum of manifest file sizes)
-- [ ] `GET /api/v1/sessions/{id}`: store.Get + one PresignGet per manifest file; keys are built from the stored (already sanitized) filenames verbatim per the Sanitization boundary; response embeds `url` per file and top-level `urlsExpireAt`; `404` on ErrNotFound
-- [ ] write tests with moq mocks: list mapping incl. totalSize/labels, detail URL embedding, presign key uses the stored filename as-is, 404, presign failure → `502`
-- [ ] run tests - must pass before task 7
+- [x] `GET /api/v1/catalog`: map store.List to items `{id, title, revision, updatedAt, totalSize, trackLabels}` (totalSize = sum of manifest file sizes)
+- [x] `GET /api/v1/sessions/{id}`: store.Get + one PresignGet per manifest file; keys are built from the stored (already sanitized) filenames verbatim per the Sanitization boundary; response embeds `url` per file and top-level `urlsExpireAt`; `404` on ErrNotFound
+- [x] write tests with moq mocks: list mapping incl. totalSize/labels, detail URL embedding, presign key uses the stored filename as-is, 404, presign failure → `502`
+- [x] run tests - must pass before task 7
 
 ### Task 7: Upload negotiation endpoint
 
@@ -258,10 +258,10 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/uploads.go`, `internal/api/uploads_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] `POST /api/v1/uploads`: body `{sessionId?, files[]}`; allocate a new UUID when `sessionId` absent; validate each file entry (sha256/size/filename rules from `internal/manifest`); sanitize each filename at this boundary (see Sanitization boundary) and echo the sanitized names in the response; for each file call Exists → respond `exists:true` or `uploadUrl` from PresignPut; echo `sessionId`
-- [ ] no catalog/store access in this handler - blob only (keeps half-uploads invisible)
-- [ ] write tests: new-session id allocation, existing-session pass-through, mixed exists/missing response, raw filename echoed back sanitized with its key using the sanitized form, validation `400`, blob failure `502`
-- [ ] run tests - must pass before task 8
+- [x] `POST /api/v1/uploads`: body `{sessionId?, files[]}`; allocate a new UUID when `sessionId` absent; validate each file entry (sha256/size/filename rules from `internal/manifest`); sanitize each filename at this boundary (see Sanitization boundary) and echo the sanitized names in the response; for each file call Exists → respond `exists:true` or `uploadUrl` from PresignPut; echo `sessionId`
+- [x] no catalog/store access in this handler - blob only (keeps half-uploads invisible)
+- [x] write tests: new-session id allocation, existing-session pass-through, mixed exists/missing response, raw filename echoed back sanitized with its key using the sanitized form, validation `400`, blob failure `502`
+- [x] run tests - must pass before task 8
 
 ### Task 8: Finalize and delete endpoints
 
@@ -269,34 +269,34 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/finalize.go`, `internal/api/finalize_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] shared verify step: sanitize incoming manifest filenames at the boundary (see Sanitization boundary), then for every manifest file blob.Exists on its key; collect misses → `409 {"missing":[...]}`; the manifest is stored with the sanitized filenames
-- [ ] `POST /api/v1/sessions`: validate manifest, verify objects, store.Create with the client-supplied `sessionId` (must be a valid UUID; `400` otherwise), return `{"id","revision":1}`; duplicate id → `409`
-- [ ] `PUT /api/v1/sessions/{id}`: validate, `404` on unknown id, verify objects, store.UpdateManifest, return bumped revision
-- [ ] `DELETE /api/v1/sessions/{id}`: store.Delete, `204`; `404` on unknown id
-- [ ] write tests: happy create, happy revision bump, 409 with exact missing list, 404s, invalid manifest 400, duplicate create 409, finalize with a raw filename stores the sanitized form and verifies under the sanitized key
-- [ ] run tests - must pass before task 9
+- [x] shared verify step: sanitize incoming manifest filenames at the boundary (see Sanitization boundary), then for every manifest file blob.Exists on its key; collect misses → `409 {"missing":[...]}`; the manifest is stored with the sanitized filenames
+- [x] `POST /api/v1/sessions`: validate manifest, verify objects, store.Create with the client-supplied `sessionId` (must be a valid UUID; `400` otherwise), return `{"id","revision":1}`; duplicate id → `409`
+- [x] `PUT /api/v1/sessions/{id}`: validate, `404` on unknown id, verify objects, store.UpdateManifest, return bumped revision
+- [x] `DELETE /api/v1/sessions/{id}`: store.Delete, `204`; `404` on unknown id
+- [x] write tests: happy create, happy revision bump, 409 with exact missing list, 404s, invalid manifest 400, duplicate create 409, finalize with a raw filename stores the sanitized form and verifies under the sanitized key
+- [x] run tests - must pass before task 9
 
 ### Task 9: Composition root (`cmd/allspeak-catalog`)
 
 **Files:**
 - Create: `cmd/allspeak-catalog/main.go`, `cmd/allspeak-catalog/config.go`, `cmd/allspeak-catalog/config_test.go`
 
-- [ ] `config.go`: struct with all env vars from Technical Details, `func loadConfig() (config, error)` - fail fast listing every missing required var; defaults for `DB_PATH`, `LISTEN_ADDR`
-- [ ] `main.go`: slog JSON logger to stdout, construct store + blob + api.NewServer, `http.Server` with sane timeouts, graceful shutdown on SIGTERM/SIGINT (context with deadline)
-- [ ] only this package knows concrete types (composition-root rule)
-- [ ] write tests for loadConfig: full env, each missing required var named in the error, defaults applied
-- [ ] run tests - must pass before task 10
+- [x] `config.go`: struct with all env vars from Technical Details, `func loadConfig() (config, error)` - fail fast listing every missing required var; defaults for `DB_PATH`, `LISTEN_ADDR`
+- [x] `main.go`: slog JSON logger to stdout, construct store + blob + api.NewServer, `http.Server` with sane timeouts, graceful shutdown on SIGTERM/SIGINT (context with deadline)
+- [x] only this package knows concrete types (composition-root rule)
+- [x] write tests for loadConfig: full env, each missing required var named in the error, defaults applied
+- [x] run tests - must pass before task 10
 
 ### Task 10: Dockerfile and compose
 
 **Files:**
 - Create: `Dockerfile`, `compose.yaml`, `.env.example`
 
-- [ ] multi-stage Dockerfile: `golang:1.25` build (CGO_ENABLED=0) → `scratch` with CA certs and the binary; container listens on 8080
-- [ ] `compose.yaml`: service `allspeak-catalog`, `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, `restart: unless-stopped`, volume `./data:/data`, env passthrough for all vars, external network `proxy`, Traefik labels per the droplet conventions in Context (router rule ``Host(`${DOMAIN}`)``, entrypoint `web-secure`, explicit `loadbalancer.server.port=8080`)
-- [ ] `.env.example` with every variable and a comment line each
-- [ ] verify (deterministic, no docker daemon needed): grep assertions pass - `Dockerfile` contains `FROM golang:1.25`, `CGO_ENABLED=0`, `FROM scratch`, `ca-certificates`; `compose.yaml` contains `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, the external `proxy` network, and `loadbalancer.server.port=8080` (real `docker build` runs in CI and on the droplet - Post-Completion)
-- [ ] run full test suite - must pass before task 11
+- [x] multi-stage Dockerfile: `golang:1.25` build (CGO_ENABLED=0) → `scratch` with CA certs and the binary; container listens on 8080
+- [x] `compose.yaml`: service `allspeak-catalog`, `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, `restart: unless-stopped`, volume `./data:/data`, env passthrough for all vars, external network `proxy`, Traefik labels per the droplet conventions in Context (router rule ``Host(`${DOMAIN}`)``, entrypoint `web-secure`, explicit `loadbalancer.server.port=8080`)
+- [x] `.env.example` with every variable and a comment line each
+- [x] verify (deterministic, no docker daemon needed): grep assertions pass - `Dockerfile` contains `FROM golang:1.25`, `CGO_ENABLED=0`, `FROM scratch`, `ca-certificates`; `compose.yaml` contains `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, the external `proxy` network, and `loadbalancer.server.port=8080` (real `docker build` runs in CI and on the droplet - Post-Completion)
+- [x] run full test suite - must pass before task 11
 
 ### Task 11: CI and deploy tooling
 
@@ -304,25 +304,25 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `spot.yml`, `inventory.yml`
 - Modify: `Makefile`
 
-- [ ] `ci.yml`: on PR and push to main - `golangci-lint run` + `go test ./... -race`
-- [ ] `release.yml`: on push to main - docker build and push `ghcr.io/pkarpovich/allspeak-catalog` with `latest` + git-sha tags (`docker/build-push-action`, `GITHUB_TOKEN` permissions for packages)
-- [ ] `spot.yml`: a single task named `deploy` - clone `git@github.com:pkarpovich/allspeak-catalog.git` to `~/allspeak-catalog` if missing, `git pull`, `docker compose pull`, `docker compose up -d`
-- [ ] `inventory.yml` with the droplet host (`lasso`); Makefile: `SSH_KEY ?= $(HOME)/.ssh/id_ed25519` and `deploy_%: spot -t $* -v -i ./inventory.yml -k $(SSH_KEY)` (operator overrides `SSH_KEY` via env)
-- [ ] verify (deterministic, no external tools): `ci.yml` contains `pull_request` and `push` triggers for `main`, a `golangci-lint` step, and `go test ./... -race`; `release.yml` contains `docker/build-push-action` and `ghcr.io/pkarpovich/allspeak-catalog`; `spot.yml` defines exactly the `deploy` task with the four steps above (real workflow validation happens on the first push - Post-Completion)
-- [ ] run full test suite - must pass before task 12
+- [x] `ci.yml`: on PR and push to main - `golangci-lint run` + `go test ./... -race`
+- [x] `release.yml`: on push to main - docker build and push `ghcr.io/pkarpovich/allspeak-catalog` with `latest` + git-sha tags (`docker/build-push-action`, `GITHUB_TOKEN` permissions for packages)
+- [x] `spot.yml`: a single task named `deploy` - clone `git@github.com:pkarpovich/allspeak-catalog.git` to `~/allspeak-catalog` if missing, `git pull`, `docker compose pull`, `docker compose up -d`
+- [x] `inventory.yml` with the droplet host (`lasso`); Makefile: `SSH_KEY ?= $(HOME)/.ssh/id_ed25519` and `deploy_%: spot -t $* -v -i ./inventory.yml -k $(SSH_KEY)` (operator overrides `SSH_KEY` via env)
+- [x] verify (deterministic, no external tools): `ci.yml` contains `pull_request` and `push` triggers for `main`, a `golangci-lint` step, and `go test ./... -race`; `release.yml` contains `docker/build-push-action` and `ghcr.io/pkarpovich/allspeak-catalog`; `spot.yml` defines exactly the `deploy` task with the four steps above (real workflow validation happens on the first push - Post-Completion)
+- [x] run full test suite - must pass before task 12
 
 ### Task 12: Verify acceptance criteria
 
-- [ ] every endpoint from the API contract table exists with the specified auth, status codes, and shapes (walk the table against the router and tests)
-- [ ] every validation rule from Technical Details has a covering test
-- [ ] every Non-goal is still a non-goal (no scope creep: no extra endpoints, no config knobs beyond the table)
-- [ ] run full test suite: `make test` - green, `-race` clean
-- [ ] `golangci-lint run` - zero issues; coverage ≥80%
+- [x] every endpoint from the API contract table exists with the specified auth, status codes, and shapes (walk the table against the router and tests)
+- [x] every validation rule from Technical Details has a covering test
+- [x] every Non-goal is still a non-goal (no scope creep: no extra endpoints, no config knobs beyond the table)
+- [x] run full test suite: `make test` - green, `-race` clean
+- [x] `golangci-lint run` - zero issues; coverage ≥80% (measured 84.2% aggregate)
 
 ### Task 13: Update documentation
 
-- [ ] README: purpose, API contract table, env-var table, local run instructions, deploy runbook (Spot), and the manual smoke checklist mirroring the anchor acceptance scenario (upload 3-track film via curl → catalog → presigned download + sha256 check → one-track revision 2)
-- [ ] move this plan to `docs/plans/completed/`
+- [x] README: purpose, API contract table, env-var table, local run instructions, deploy runbook (Spot), and the manual smoke checklist mirroring the anchor acceptance scenario (upload 3-track film via curl → catalog → presigned download + sha256 check → one-track revision 2)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
