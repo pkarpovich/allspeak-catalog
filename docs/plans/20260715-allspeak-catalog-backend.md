@@ -181,12 +181,12 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `go.mod`, `.gitignore`, `.golangci.yml`, `Makefile`, `README.md`
 
-- [ ] `go mod init github.com/pkarpovich/allspeak-catalog`, Go 1.25
-- [ ] `.gitignore`: binaries, `.env`, `*.db`, coverage artifacts
-- [ ] `.golangci.yml` with the standard linter set used by the `go` skill conventions
-- [ ] `Makefile` targets: `lint`, `test` (with `-race`), `build`
-- [ ] `README.md` skeleton: one-paragraph purpose + placeholder sections (API, Config, Deploy, Smoke checklist)
-- [ ] run `golangci-lint run` on the empty module - clean baseline
+- [x] `go mod init github.com/pkarpovich/allspeak-catalog`, Go 1.25
+- [x] `.gitignore`: binaries, `.env`, `*.db`, coverage artifacts
+- [x] `.golangci.yml` with the standard linter set used by the `go` skill conventions
+- [x] `Makefile` targets: `lint`, `test` (with `-race`), `build`
+- [x] `README.md` skeleton: one-paragraph purpose + placeholder sections (API, Config, Deploy, Smoke checklist)
+- [x] run `golangci-lint run` on the empty module - clean baseline (`golangci-lint config verify` passes with zero findings; v2.12.2 exits non-zero on a source-less module only because there are no `.go` files yet, which clears in Task 2)
 
 ### Task 2: Manifest types and validation (`internal/manifest`)
 
