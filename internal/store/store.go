@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	sqlite "modernc.org/sqlite"
@@ -50,6 +52,9 @@ const columns = `id, title, revision, created_at, updated_at, manifest`
 // New opens (creating if absent) the SQLite catalog at path, enables WAL mode,
 // and ensures the sessions table exists. It is idempotent across reopens.
 func New(path string) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return nil, fmt.Errorf("create db dir: %w", err)
+	}
 	// pragmas go in the DSN so they apply to every pooled connection; busy_timeout
 	// is per-connection and would otherwise only be set on one arbitrary connection.
 	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"

@@ -160,6 +160,18 @@ func TestDeleteNotFound(t *testing.T) {
 	assert.ErrorIs(t, st.Delete(context.Background(), "missing"), ErrNotFound)
 }
 
+func TestNewCreatesMissingParentDir(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "dir", "catalog.db")
+
+	st, err := New(path)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, st.Close()) })
+
+	sessions, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+}
+
 func TestReopenExistingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalog.db")
 
