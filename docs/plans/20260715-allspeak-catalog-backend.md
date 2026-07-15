@@ -247,10 +247,10 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/read.go`, `internal/api/read_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] `GET /api/v1/catalog`: map store.List to items `{id, title, revision, updatedAt, totalSize, trackLabels}` (totalSize = sum of manifest file sizes)
-- [ ] `GET /api/v1/sessions/{id}`: store.Get + one PresignGet per manifest file; keys are built from the stored (already sanitized) filenames verbatim per the Sanitization boundary; response embeds `url` per file and top-level `urlsExpireAt`; `404` on ErrNotFound
-- [ ] write tests with moq mocks: list mapping incl. totalSize/labels, detail URL embedding, presign key uses the stored filename as-is, 404, presign failure → `502`
-- [ ] run tests - must pass before task 7
+- [x] `GET /api/v1/catalog`: map store.List to items `{id, title, revision, updatedAt, totalSize, trackLabels}` (totalSize = sum of manifest file sizes)
+- [x] `GET /api/v1/sessions/{id}`: store.Get + one PresignGet per manifest file; keys are built from the stored (already sanitized) filenames verbatim per the Sanitization boundary; response embeds `url` per file and top-level `urlsExpireAt`; `404` on ErrNotFound
+- [x] write tests with moq mocks: list mapping incl. totalSize/labels, detail URL embedding, presign key uses the stored filename as-is, 404, presign failure → `502`
+- [x] run tests - must pass before task 7
 
 ### Task 7: Upload negotiation endpoint
 
