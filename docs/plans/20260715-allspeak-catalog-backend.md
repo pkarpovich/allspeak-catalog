@@ -233,13 +233,13 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `internal/api/server.go`, `internal/api/auth.go`, `internal/api/server_test.go`, `internal/api/auth_test.go`
 
-- [ ] `Config` struct (admin token, read token, store iface, blob iface, logger) + `func NewServer(cfg Config) *Server` returning a `*Server` exposing `http.Handler`
-- [ ] consumer-side interfaces in this package: `sessionStore` (Create/UpdateManifest/Get/List/Delete) and `objectStore` (PresignPut/PresignGet/Exists) - defined here, satisfied by `internal/store` / `internal/blob`
-- [ ] auth middleware: bearer token, `crypto/subtle` comparison; read endpoints accept read or admin token; admin endpoints admin only; `401` vs `403` per the contract
-- [ ] request-logging middleware (slog: method, path, status, duration) and `GET /health` without auth
-- [ ] `go:generate` moq directives for both interfaces, mocks in `internal/api/mocks/`
-- [ ] write httptest tests: health without token; each auth outcome (missing, wrong, read-on-admin, admin-on-read) table-driven
-- [ ] run tests - must pass before task 6
+- [x] `Config` struct (admin token, read token, store iface, blob iface, logger) + `func NewServer(cfg Config) *Server` returning a `*Server` exposing `http.Handler` (via `Handler()`)
+- [x] consumer-side interfaces in this package: `SessionStore` (Create/UpdateManifest/Get/List/Delete) and `ObjectStore` (PresignPut/PresignGet/Exists) - defined here, satisfied by `internal/store` / `internal/blob`. Exported (not lowercase as first drafted) because moq mocks live in the sibling `internal/api/mocks/` package and same-package `api` tests must reference the exported `mocks.*Mock` types; interface-satisfaction is guarded by assertions in the test package
+- [x] auth middleware: bearer token, `crypto/subtle` comparison; read endpoints accept read or admin token; admin endpoints admin only; `401` vs `403` per the contract
+- [x] request-logging middleware (slog: method, path, status, duration) and `GET /health` without auth
+- [x] `go:generate` moq directives for both interfaces (`-skip-ensure` to avoid a mocks→api import cycle in same-package tests), mocks in `internal/api/mocks/`
+- [x] write httptest tests: health without token; each auth outcome (missing, wrong, read-on-admin, admin-on-read) table-driven
+- [x] run tests - must pass before task 6
 
 ### Task 6: Read endpoints - catalog list and session detail
 
