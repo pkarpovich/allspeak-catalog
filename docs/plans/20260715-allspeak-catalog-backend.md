@@ -193,13 +193,13 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `internal/manifest/manifest.go`, `internal/manifest/manifest_test.go`
 
-- [ ] types `Manifest`, `Track`, `FileRef` matching the wire shape in Technical Details (JSON tags camelCase)
-- [ ] `func (m Manifest) Validate() error` implementing every rule from "Validation rules"; errors name the offending field
-- [ ] `func SanitizeFilename(name string) (string, error)` per the sanitization rule
-- [ ] `func (m Manifest) Files() []FileRef` - flat list (tracks + subtitle) for iteration by api/blob callers
-- [ ] write table-driven tests for Validate: valid manifest, each individual rule violation
-- [ ] write tests for SanitizeFilename: path components, forbidden chars, empty result
-- [ ] run tests - must pass before task 3
+- [x] types `Manifest`, `Track`, `FileRef` matching the wire shape in Technical Details (JSON tags camelCase)
+- [x] `func (m Manifest) Validate() error` implementing every rule from "Validation rules"; errors name the offending field
+- [x] `func SanitizeFilename(name string) (string, error)` per the sanitization rule
+- [x] `func (m Manifest) Files() []FileRef` - flat list (tracks + subtitle) for iteration by api/blob callers
+- [x] write table-driven tests for Validate: valid manifest, each individual rule violation
+- [x] write tests for SanitizeFilename: path components, forbidden chars, empty result
+- [x] run tests - must pass before task 3
 
 ### Task 3: Catalog store (`internal/store`)
 
