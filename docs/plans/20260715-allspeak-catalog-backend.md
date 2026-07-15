@@ -292,11 +292,11 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `Dockerfile`, `compose.yaml`, `.env.example`
 
-- [ ] multi-stage Dockerfile: `golang:1.25` build (CGO_ENABLED=0) → `scratch` with CA certs and the binary; container listens on 8080
-- [ ] `compose.yaml`: service `allspeak-catalog`, `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, `restart: unless-stopped`, volume `./data:/data`, env passthrough for all vars, external network `proxy`, Traefik labels per the droplet conventions in Context (router rule ``Host(`${DOMAIN}`)``, entrypoint `web-secure`, explicit `loadbalancer.server.port=8080`)
-- [ ] `.env.example` with every variable and a comment line each
-- [ ] verify (deterministic, no docker daemon needed): grep assertions pass - `Dockerfile` contains `FROM golang:1.25`, `CGO_ENABLED=0`, `FROM scratch`, `ca-certificates`; `compose.yaml` contains `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, the external `proxy` network, and `loadbalancer.server.port=8080` (real `docker build` runs in CI and on the droplet - Post-Completion)
-- [ ] run full test suite - must pass before task 11
+- [x] multi-stage Dockerfile: `golang:1.25` build (CGO_ENABLED=0) → `scratch` with CA certs and the binary; container listens on 8080
+- [x] `compose.yaml`: service `allspeak-catalog`, `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, `restart: unless-stopped`, volume `./data:/data`, env passthrough for all vars, external network `proxy`, Traefik labels per the droplet conventions in Context (router rule ``Host(`${DOMAIN}`)``, entrypoint `web-secure`, explicit `loadbalancer.server.port=8080`)
+- [x] `.env.example` with every variable and a comment line each
+- [x] verify (deterministic, no docker daemon needed): grep assertions pass - `Dockerfile` contains `FROM golang:1.25`, `CGO_ENABLED=0`, `FROM scratch`, `ca-certificates`; `compose.yaml` contains `image: ghcr.io/pkarpovich/allspeak-catalog:latest`, the external `proxy` network, and `loadbalancer.server.port=8080` (real `docker build` runs in CI and on the droplet - Post-Completion)
+- [x] run full test suite - must pass before task 11
 
 ### Task 11: CI and deploy tooling
 

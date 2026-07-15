@@ -1,0 +1,26 @@
+services:
+  allspeak-catalog:
+    image: ghcr.io/pkarpovich/allspeak-catalog:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      AUTH_ADMIN_TOKEN: ${AUTH_ADMIN_TOKEN}
+      AUTH_READ_TOKEN: ${AUTH_READ_TOKEN}
+      CF_ACCESS_KEY_ID: ${CF_ACCESS_KEY_ID}
+      CF_ACCESS_SECRET: ${CF_ACCESS_SECRET}
+      CF_ENDPOINT: ${CF_ENDPOINT}
+      CF_BUCKET: ${CF_BUCKET}
+      DB_PATH: ${DB_PATH:-/data/catalog.db}
+      LISTEN_ADDR: ${LISTEN_ADDR:-:8080}
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.allspeak-catalog.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.allspeak-catalog.entrypoints=web-secure
+      - traefik.http.services.allspeak-catalog.loadbalancer.server.port=8080
+
+networks:
+  proxy:
+    external: true
