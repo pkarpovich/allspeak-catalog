@@ -15,7 +15,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-const presignExpiry = time.Hour
+// PresignExpiry is how long presigned upload and download URLs stay valid. It
+// is the single source of truth for the reported urlsExpireAt in read responses.
+const PresignExpiry = time.Hour
 
 // Config holds the R2 (S3-compatible) connection parameters.
 type Config struct {
@@ -71,7 +73,7 @@ func (c *Client) PresignPut(ctx context.Context, key string) (string, error) {
 	req, err := c.presign.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
-	}, s3.WithPresignExpires(presignExpiry))
+	}, s3.WithPresignExpires(PresignExpiry))
 	if err != nil {
 		return "", fmt.Errorf("presign put %q: %w", key, err)
 	}
@@ -83,7 +85,7 @@ func (c *Client) PresignGet(ctx context.Context, key string) (string, error) {
 	req, err := c.presign.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
-	}, s3.WithPresignExpires(presignExpiry))
+	}, s3.WithPresignExpires(PresignExpiry))
 	if err != nil {
 		return "", fmt.Errorf("presign get %q: %w", key, err)
 	}

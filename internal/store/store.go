@@ -50,15 +50,12 @@ const columns = `id, title, revision, created_at, updated_at, manifest`
 // New opens (creating if absent) the SQLite catalog at path, enables WAL mode,
 // and ensures the sessions table exists. It is idempotent across reopens.
 func New(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path)
+	// pragmas go in the DSN so they apply to every pooled connection; busy_timeout
+	// is per-connection and would otherwise only be set on one arbitrary connection.
+	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite %q: %w", path, err)
-	}
-	for _, pragma := range []string{"PRAGMA journal_mode=WAL", "PRAGMA busy_timeout=5000"} {
-		if _, err := db.Exec(pragma); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("%s: %w", pragma, err)
-		}
 	}
 	if _, err := db.Exec(schema); err != nil {
 		_ = db.Close()

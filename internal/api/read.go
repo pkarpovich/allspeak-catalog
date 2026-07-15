@@ -11,8 +11,6 @@ import (
 	"github.com/pkarpovich/allspeak-catalog/internal/store"
 )
 
-const presignedURLTTL = time.Hour
-
 type catalogItem struct {
 	ID          string    `json:"id"`
 	Title       string    `json:"title"`
@@ -125,7 +123,7 @@ func (s *Server) sessionDetail(ctx context.Context, session store.Session) (sess
 		UpdatedAt:    session.UpdatedAt,
 		Tracks:       tracks,
 		Subtitle:     fileWithURL{FileRef: session.Manifest.Subtitle, URL: subtitleURL},
-		URLsExpireAt: time.Now().UTC().Add(presignedURLTTL),
+		URLsExpireAt: time.Now().UTC().Add(blob.PresignExpiry),
 	}, nil
 }
 

@@ -97,7 +97,7 @@ func TestPresignPutHasNoChecksum(t *testing.T) {
 	req, err := c.presign.PresignPutObject(context.Background(), &s3.PutObjectInput{
 		Bucket: aws.String(testBucket),
 		Key:    aws.String(key),
-	}, s3.WithPresignExpires(presignExpiry))
+	}, s3.WithPresignExpires(PresignExpiry))
 	require.NoError(t, err)
 
 	for name := range req.SignedHeader {

@@ -21,6 +21,8 @@ func TestAuth(t *testing.T) {
 		{name: "read endpoint missing token", level: authRead, header: "", wantStatus: http.StatusUnauthorized},
 		{name: "read endpoint unknown token", level: authRead, header: "Bearer nope", wantStatus: http.StatusUnauthorized},
 		{name: "read endpoint malformed header", level: authRead, header: "Token " + readToken, wantStatus: http.StatusUnauthorized},
+		{name: "read endpoint whitespace-only token", level: authRead, header: "Bearer    ", wantStatus: http.StatusUnauthorized},
+		{name: "read endpoint lowercase bearer prefix", level: authRead, header: "bearer " + readToken, wantStatus: http.StatusOK, wantNext: true},
 		{name: "read endpoint read token", level: authRead, header: "Bearer " + readToken, wantStatus: http.StatusOK, wantNext: true},
 		{name: "read endpoint admin token", level: authRead, header: "Bearer " + adminToken, wantStatus: http.StatusOK, wantNext: true},
 		{name: "admin endpoint missing token", level: authAdmin, header: "", wantStatus: http.StatusUnauthorized},

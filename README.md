@@ -20,16 +20,17 @@ URLs expire one hour after they are issued.
 | Method / path | Auth | Behavior |
 |---|---|---|
 | `GET /health` | none | `200 {"status":"ok"}` (outside `/api/v1`) |
-| `GET /api/v1/catalog` | read | List sessions: `id, title, revision, updatedAt, totalSize, trackLabels[]` per session |
+| `GET /api/v1/catalog` | read | List sessions as `{"sessions":[{id, title, revision, updatedAt, totalSize, trackLabels[]}]}` |
 | `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET) and the response carries `urlsExpireAt`; `404` if unknown |
-| `POST /api/v1/uploads` | admin | Body `{"sessionId": "<uuid or null>", "files":[{"sha256","size","filename"}]}`; for a new session the server allocates and returns `sessionId`. Response per file: `{"sha256","filename","exists":true}` or `{"sha256","filename","uploadUrl"}` (presigned PUT). Never touches the catalog table |
+| `POST /api/v1/uploads` | admin | Body `{"sessionId": "<uuid or null>", "files":[{"sha256","size","filename"}]}` (`files` must be non-empty); for a new session the server allocates and returns `sessionId`. Response `{"sessionId","files":[...]}`, per file `{"sha256","filename","exists":true}` or `{"sha256","filename","uploadUrl"}` (presigned PUT). Never touches the catalog table |
 | `POST /api/v1/sessions` | admin | Finalize a new session: `{"sessionId","title","manifest"}`; verifies every referenced object exists in R2, inserts with `revision=1`, returns `{"id","revision"}`. `409` if the id already exists |
 | `PUT /api/v1/sessions/{id}` | admin | Finalize a new revision: body same as above minus `sessionId`; `404` if unknown id; verifies objects; increments `revision`; returns `{"id","revision"}` |
 | `DELETE /api/v1/sessions/{id}` | admin | Remove the catalog row (R2 objects left in place); `204`; `404` if unknown id |
 
 Error semantics: `401` missing/unknown token; `403` read token on an admin endpoint; `404` unknown
 session id; `409` finalize with missing objects (body `{"missing":["<sha256>", ...]}`) or duplicate
-create id; `400` validation failure (body names the offending field).
+create id; `400` validation failure (body names the offending field). Every error response except
+`409` carries `{"error":"<message>"}`.
 
 ### Manifest shape
 

@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -174,6 +176,67 @@ func TestReopenExistingFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "kept", got.Title)
 	assert.Equal(t, testManifest(shaA), got.Manifest)
+}
+
+func TestGetMalformedRow(t *testing.T) {
+	tests := []struct {
+		name      string
+		createdAt string
+		updatedAt string
+		manifest  string
+		wantErr   string
+	}{
+		{name: "bad created_at", createdAt: "nope", updatedAt: "2026-07-15T12:00:00Z", manifest: "{}", wantErr: "parse created_at"},
+		{name: "bad updated_at", createdAt: "2026-07-15T12:00:00Z", updatedAt: "nope", manifest: "{}", wantErr: "parse updated_at"},
+		{name: "bad manifest", createdAt: "2026-07-15T12:00:00Z", updatedAt: "2026-07-15T12:00:00Z", manifest: "{not json}", wantErr: "unmarshal manifest"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newTestStore(t)
+			_, err := st.db.Exec(
+				`INSERT INTO sessions (`+columns+`) VALUES (?, ?, 1, ?, ?, ?)`,
+				"bad", "title", tt.createdAt, tt.updatedAt, tt.manifest,
+			)
+			require.NoError(t, err)
+
+			_, err = st.Get(context.Background(), "bad")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestConcurrentAccess(t *testing.T) {
+	st := newTestStore(t)
+	const n = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, n*3)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			id := fmt.Sprintf("s-%d", i)
+			if err := st.Create(context.Background(), Session{ID: id, Title: id, Manifest: testManifest(shaA)}); err != nil {
+				errs <- err
+				return
+			}
+			if _, err := st.Get(context.Background(), id); err != nil {
+				errs <- err
+			}
+			if _, err := st.List(context.Background()); err != nil {
+				errs <- err
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	sessions, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, sessions, n)
 }
 
 func TestManifestJSONFidelity(t *testing.T) {

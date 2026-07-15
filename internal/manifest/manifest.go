@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	reSHA256      = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	reForbidden   = regexp.MustCompile(`[^A-Za-z0-9._ -]`)
-	errEmptyAfter = errors.New("empty after sanitization")
+	reSHA256    = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	reForbidden = regexp.MustCompile(`[^A-Za-z0-9._ -]`)
 )
 
 // FileRef is a single content-addressed file in a manifest.
@@ -117,7 +116,7 @@ func (m Manifest) Files() []FileRef {
 func SanitizeFilename(name string) (string, error) {
 	base := path.Base(name)
 	if base == "" || base == "." || base == "/" {
-		return "", fmt.Errorf("%w: %q", errEmptyAfter, name)
+		return "", fmt.Errorf("empty after sanitization: %q", name)
 	}
 	return reForbidden.ReplaceAllString(base, "_"), nil
 }

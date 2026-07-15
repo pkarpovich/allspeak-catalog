@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -117,7 +118,7 @@ func (s *Server) decodeFinalize(w http.ResponseWriter, r *http.Request) (finaliz
 		s.writeError(w, http.StatusBadRequest, "title: must not be empty")
 		return finalizeRequest{}, false
 	}
-	if len(title) > maxTitleLen {
+	if utf8.RuneCountInString(title) > maxTitleLen {
 		s.writeError(w, http.StatusBadRequest, fmt.Sprintf("title: must be at most %d chars", maxTitleLen))
 		return finalizeRequest{}, false
 	}

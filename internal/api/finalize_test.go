@@ -232,6 +232,30 @@ func TestCreateSessionInvalidTitle(t *testing.T) {
 	}
 }
 
+func TestCreateSessionTitleLength(t *testing.T) {
+	tests := []struct {
+		name       string
+		title      string
+		wantStatus int
+	}{
+		{name: "max ascii accepted", title: strings.Repeat("a", maxTitleLen), wantStatus: http.StatusOK},
+		{name: "over max ascii rejected", title: strings.Repeat("a", maxTitleLen+1), wantStatus: http.StatusBadRequest},
+		{name: "max multibyte accepted", title: strings.Repeat("я", maxTitleLen), wantStatus: http.StatusOK},
+		{name: "over max multibyte rejected", title: strings.Repeat("я", maxTitleLen+1), wantStatus: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionStore := &mocks.SessionStoreMock{
+				CreateFunc: func(_ context.Context, _ store.Session) error { return nil },
+			}
+			s := serverWith(sessionStore, existsAll())
+			body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: tt.title, Manifest: sampleManifest()})
+			rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+			assert.Equal(t, tt.wantStatus, rec.Code)
+		})
+	}
+}
+
 func TestCreateSessionInvalidJSON(t *testing.T) {
 	s := serverWith(&mocks.SessionStoreMock{}, existsAll())
 	rec := adminReq(s, http.MethodPost, "/api/v1/sessions", `{"title":`)
@@ -337,6 +361,72 @@ func TestUpdateSessionMissingObjects(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, []string{shaSubtitle}, resp.Missing)
+	assert.Empty(t, sessionStore.UpdateManifestCalls())
+}
+
+func TestUpdateSessionGetError(t *testing.T) {
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return store.Session{}, errors.New("db down")
+		},
+	}
+	s := serverWith(sessionStore, existsAll())
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifest()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Empty(t, sessionStore.UpdateManifestCalls())
+}
+
+func TestUpdateSessionDeletedDuringUpdate(t *testing.T) {
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSession(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, _ store.Session) (int, error) {
+			return 0, store.ErrNotFound
+		},
+	}
+	s := serverWith(sessionStore, existsAll())
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifest()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestUpdateSessionStoreError(t *testing.T) {
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSession(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, _ store.Session) (int, error) {
+			return 0, errors.New("db down")
+		},
+	}
+	s := serverWith(sessionStore, existsAll())
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifest()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestUpdateSessionVerifyFailure(t *testing.T) {
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, _ string) (bool, error) {
+			return false, errors.New("r2 down")
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSession(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, _ store.Session) (int, error) { return 0, nil },
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifest()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.Empty(t, sessionStore.UpdateManifestCalls())
 }
 
