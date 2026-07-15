@@ -281,11 +281,11 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `cmd/allspeak-catalog/main.go`, `cmd/allspeak-catalog/config.go`, `cmd/allspeak-catalog/config_test.go`
 
-- [ ] `config.go`: struct with all env vars from Technical Details, `func loadConfig() (config, error)` - fail fast listing every missing required var; defaults for `DB_PATH`, `LISTEN_ADDR`
-- [ ] `main.go`: slog JSON logger to stdout, construct store + blob + api.NewServer, `http.Server` with sane timeouts, graceful shutdown on SIGTERM/SIGINT (context with deadline)
-- [ ] only this package knows concrete types (composition-root rule)
-- [ ] write tests for loadConfig: full env, each missing required var named in the error, defaults applied
-- [ ] run tests - must pass before task 10
+- [x] `config.go`: struct with all env vars from Technical Details, `func loadConfig() (config, error)` - fail fast listing every missing required var; defaults for `DB_PATH`, `LISTEN_ADDR`
+- [x] `main.go`: slog JSON logger to stdout, construct store + blob + api.NewServer, `http.Server` with sane timeouts, graceful shutdown on SIGTERM/SIGINT (context with deadline)
+- [x] only this package knows concrete types (composition-root rule)
+- [x] write tests for loadConfig: full env, each missing required var named in the error, defaults applied
+- [x] run tests - must pass before task 10
 
 ### Task 10: Dockerfile and compose
 
