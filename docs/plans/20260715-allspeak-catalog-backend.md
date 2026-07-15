@@ -218,15 +218,15 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 **Files:**
 - Create: `internal/blob/blob.go`, `internal/blob/blob_test.go`
 
-- [ ] `Config` struct (endpoint, key id, secret, bucket) + `func New(cfg Config) (*Client, error)`
-- [ ] SDK wiring pinned for R2: `config.LoadDefaultConfig` with `config.WithRegion("auto")` and static credentials; endpoint via `s3.NewFromConfig(awsCfg, func(o *s3.Options) { o.BaseEndpoint = ... })` - not the deprecated endpoint-resolver API
-- [ ] disable default payload checksums: set `RequestChecksumCalculation` and `ResponseChecksumValidation` to `when_required` - otherwise (SDK >= v1.73, Jan 2025) presigned PUTs sign `x-amz-checksum-crc32` and a plain `curl -T` upload against R2 fails with a signature error
-- [ ] `func Key(sessionID, sha256, filename string) string` → `sessions/<id>/files/<sha256>-<filename>` (expects pre-sanitized filename); parameters go on a small struct per the signature rules if they exceed the budget
-- [ ] methods: `PresignPut(ctx, key) (string, error)`, `PresignGet(ctx, key) (string, error)` - both with the 1h package constant expiry; `Exists(ctx, key) (bool, error)` via HeadObject mapping NotFound → `(false, nil)`
-- [ ] write tests: Key formatting; presign methods produce URLs containing bucket, key, and expiry params (offline - no network)
-- [ ] write test: the presigned PUT carries no `x-amz-checksum-*` signed header or query parameter (guards the `when_required` setting)
-- [ ] write test: Exists error mapping via an injected HTTP stub or interface seam
-- [ ] run tests - must pass before task 5
+- [x] `Config` struct (endpoint, key id, secret, bucket) + `func New(cfg Config) (*Client, error)`
+- [x] SDK wiring pinned for R2: `config.LoadDefaultConfig` with `config.WithRegion("auto")` and static credentials; endpoint via `s3.NewFromConfig(awsCfg, func(o *s3.Options) { o.BaseEndpoint = ... })` - not the deprecated endpoint-resolver API
+- [x] disable default payload checksums: set `RequestChecksumCalculation` and `ResponseChecksumValidation` to `when_required` - otherwise (SDK >= v1.73, Jan 2025) presigned PUTs sign `x-amz-checksum-crc32` and a plain `curl -T` upload against R2 fails with a signature error
+- [x] `func Key(sessionID, sha256, filename string) string` → `sessions/<id>/files/<sha256>-<filename>` (expects pre-sanitized filename); parameters go on a small struct per the signature rules if they exceed the budget
+- [x] methods: `PresignPut(ctx, key) (string, error)`, `PresignGet(ctx, key) (string, error)` - both with the 1h package constant expiry; `Exists(ctx, key) (bool, error)` via HeadObject mapping NotFound → `(false, nil)`
+- [x] write tests: Key formatting; presign methods produce URLs containing bucket, key, and expiry params (offline - no network)
+- [x] write test: the presigned PUT carries no `x-amz-checksum-*` signed header or query parameter (guards the `when_required` setting)
+- [x] write test: Exists error mapping via an injected HTTP stub or interface seam
+- [x] run tests - must pass before task 5
 
 ### Task 5: HTTP server core - auth, health, logging (`internal/api`)
 
