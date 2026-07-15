@@ -74,4 +74,14 @@ func TestLoadConfig(t *testing.T) {
 			assert.Contains(t, err.Error(), name)
 		})
 	}
+
+	t.Run("admin and read tokens must differ", func(t *testing.T) {
+		env := fullEnv()
+		env["AUTH_READ_TOKEN"] = env["AUTH_ADMIN_TOKEN"]
+		setEnv(t, env)
+
+		_, err := loadConfig()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must differ")
+	})
 }

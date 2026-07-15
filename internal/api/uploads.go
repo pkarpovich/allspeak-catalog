@@ -42,6 +42,9 @@ func (s *Server) negotiateUploads(w http.ResponseWriter, r *http.Request) {
 	sessionID := req.SessionID
 	if sessionID == "" {
 		sessionID = uuid.NewString()
+	} else if _, err := uuid.Parse(sessionID); err != nil {
+		s.writeError(w, http.StatusBadRequest, "sessionId: must be a valid uuid")
+		return
 	}
 	results := make([]uploadFileResult, 0, len(req.Files))
 	for i := range req.Files {

@@ -180,6 +180,19 @@ func TestNegotiateUploadsValidation(t *testing.T) {
 	}
 }
 
+func TestNegotiateUploadsRejectsInvalidSessionID(t *testing.T) {
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc:     func(_ context.Context, _ string) (bool, error) { return false, nil },
+		PresignPutFunc: func(_ context.Context, _ string) (string, error) { return "url", nil },
+	}
+	s := serverWith(&mocks.SessionStoreMock{}, objectStore)
+
+	body := uploadBody(t, "not-a-uuid", fileRef(shaTrackA, "film.m4a", 1))
+	rec := adminPost(s, "/api/v1/uploads", body)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Empty(t, objectStore.ExistsCalls(), "must reject before touching blob")
+}
+
 func TestNegotiateUploadsEmptyFiles(t *testing.T) {
 	s := serverWith(&mocks.SessionStoreMock{}, &mocks.ObjectStoreMock{})
 	rec := adminPost(s, "/api/v1/uploads", `{"files":[]}`)

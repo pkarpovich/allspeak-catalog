@@ -54,6 +54,9 @@ func loadConfig() (config, error) {
 	if len(missing) > 0 {
 		return config{}, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
 	}
+	if cfg.adminToken == cfg.readToken {
+		return config{}, fmt.Errorf("AUTH_ADMIN_TOKEN and AUTH_READ_TOKEN must differ")
+	}
 
 	if cfg.dbPath == "" {
 		cfg.dbPath = defaultDBPath
