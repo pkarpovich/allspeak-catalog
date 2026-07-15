@@ -73,6 +73,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /health", s.health)
 	s.mux.Handle("GET /api/v1/catalog", s.auth(authRead, http.HandlerFunc(s.listCatalog)))
 	s.mux.Handle("GET /api/v1/sessions/{id}", s.auth(authRead, http.HandlerFunc(s.getSession)))
+	s.mux.Handle("POST /api/v1/uploads", s.auth(authAdmin, http.HandlerFunc(s.negotiateUploads)))
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {

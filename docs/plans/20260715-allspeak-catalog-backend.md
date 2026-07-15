@@ -258,10 +258,10 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/uploads.go`, `internal/api/uploads_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] `POST /api/v1/uploads`: body `{sessionId?, files[]}`; allocate a new UUID when `sessionId` absent; validate each file entry (sha256/size/filename rules from `internal/manifest`); sanitize each filename at this boundary (see Sanitization boundary) and echo the sanitized names in the response; for each file call Exists → respond `exists:true` or `uploadUrl` from PresignPut; echo `sessionId`
-- [ ] no catalog/store access in this handler - blob only (keeps half-uploads invisible)
-- [ ] write tests: new-session id allocation, existing-session pass-through, mixed exists/missing response, raw filename echoed back sanitized with its key using the sanitized form, validation `400`, blob failure `502`
-- [ ] run tests - must pass before task 8
+- [x] `POST /api/v1/uploads`: body `{sessionId?, files[]}`; allocate a new UUID when `sessionId` absent; validate each file entry (sha256/size/filename rules from `internal/manifest`); sanitize each filename at this boundary (see Sanitization boundary) and echo the sanitized names in the response; for each file call Exists → respond `exists:true` or `uploadUrl` from PresignPut; echo `sessionId`
+- [x] no catalog/store access in this handler - blob only (keeps half-uploads invisible)
+- [x] write tests: new-session id allocation, existing-session pass-through, mixed exists/missing response, raw filename echoed back sanitized with its key using the sanitized form, validation `400`, blob failure `502`
+- [x] run tests - must pass before task 8
 
 ### Task 8: Finalize and delete endpoints
 

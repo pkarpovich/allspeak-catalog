@@ -49,7 +49,7 @@ func (m Manifest) Validate() error {
 		if t.IsDefault {
 			defaults++
 		}
-		if err := t.validate(); err != nil {
+		if err := t.Validate(); err != nil {
 			return fmt.Errorf("tracks[%d].%w", i, err)
 		}
 	}
@@ -59,13 +59,16 @@ func (m Manifest) Validate() error {
 	if m.Subtitle == (FileRef{}) {
 		return errors.New("subtitle: required")
 	}
-	if err := m.Subtitle.validate(); err != nil {
+	if err := m.Subtitle.Validate(); err != nil {
 		return fmt.Errorf("subtitle.%w", err)
 	}
 	return nil
 }
 
-func (f FileRef) validate() error {
+// Validate checks a single file reference: sha256 is 64 lowercase hex chars,
+// size is positive, and filename survives sanitization. The error names the
+// offending field.
+func (f FileRef) Validate() error {
 	if !reSHA256.MatchString(f.SHA256) {
 		return fmt.Errorf("sha256: must be 64 lowercase hex chars, got %q", f.SHA256)
 	}
