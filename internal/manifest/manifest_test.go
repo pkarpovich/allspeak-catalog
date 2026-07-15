@@ -164,6 +164,48 @@ func TestSanitizeFilenameIdempotent(t *testing.T) {
 	assert.Equal(t, once, twice)
 }
 
+func TestManifestSanitize(t *testing.T) {
+	m := Manifest{
+		Tracks: []Track{
+			{Label: "ft.sidon", IsDefault: true, FileRef: FileRef{Filename: "sub/dir/a:b*.m4a", Size: 1, SHA256: shaA}},
+			{Label: "alt", FileRef: FileRef{Filename: "/Movies/alt?.m4a", Size: 1, SHA256: shaB}},
+		},
+		Subtitle: FileRef{Filename: "weird|name.srt", Size: 1, SHA256: shaC},
+	}
+	require.NoError(t, m.Sanitize())
+	assert.Equal(t, "a_b_.m4a", m.Tracks[0].Filename)
+	assert.Equal(t, "alt_.m4a", m.Tracks[1].Filename)
+	assert.Equal(t, "weird_name.srt", m.Subtitle.Filename)
+}
+
+func TestManifestSanitizeErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(m *Manifest)
+		wantErr string
+	}{
+		{
+			name:    "track filename empty after sanitize",
+			mutate:  func(m *Manifest) { m.Tracks[0].Filename = "." },
+			wantErr: "tracks[0].filename",
+		},
+		{
+			name:    "subtitle filename empty after sanitize",
+			mutate:  func(m *Manifest) { m.Subtitle.Filename = "/" },
+			wantErr: "subtitle.filename",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := validManifest()
+			tt.mutate(&m)
+			err := m.Sanitize()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestManifestFiles(t *testing.T) {
 	m := Manifest{
 		Tracks: []Track{

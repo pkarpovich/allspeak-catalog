@@ -269,12 +269,12 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 - Create: `internal/api/finalize.go`, `internal/api/finalize_test.go`
 - Modify: `internal/api/server.go` (route registration)
 
-- [ ] shared verify step: sanitize incoming manifest filenames at the boundary (see Sanitization boundary), then for every manifest file blob.Exists on its key; collect misses → `409 {"missing":[...]}`; the manifest is stored with the sanitized filenames
-- [ ] `POST /api/v1/sessions`: validate manifest, verify objects, store.Create with the client-supplied `sessionId` (must be a valid UUID; `400` otherwise), return `{"id","revision":1}`; duplicate id → `409`
-- [ ] `PUT /api/v1/sessions/{id}`: validate, `404` on unknown id, verify objects, store.UpdateManifest, return bumped revision
-- [ ] `DELETE /api/v1/sessions/{id}`: store.Delete, `204`; `404` on unknown id
-- [ ] write tests: happy create, happy revision bump, 409 with exact missing list, 404s, invalid manifest 400, duplicate create 409, finalize with a raw filename stores the sanitized form and verifies under the sanitized key
-- [ ] run tests - must pass before task 9
+- [x] shared verify step: sanitize incoming manifest filenames at the boundary (see Sanitization boundary), then for every manifest file blob.Exists on its key; collect misses → `409 {"missing":[...]}`; the manifest is stored with the sanitized filenames
+- [x] `POST /api/v1/sessions`: validate manifest, verify objects, store.Create with the client-supplied `sessionId` (must be a valid UUID; `400` otherwise), return `{"id","revision":1}`; duplicate id → `409`
+- [x] `PUT /api/v1/sessions/{id}`: validate, `404` on unknown id, verify objects, store.UpdateManifest, return bumped revision
+- [x] `DELETE /api/v1/sessions/{id}`: store.Delete, `204`; `404` on unknown id
+- [x] write tests: happy create, happy revision bump, 409 with exact missing list, 404s, invalid manifest 400, duplicate create 409, finalize with a raw filename stores the sanitized form and verifies under the sanitized key
+- [x] run tests - must pass before task 9
 
 ### Task 9: Composition root (`cmd/allspeak-catalog`)
 

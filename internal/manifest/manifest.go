@@ -81,6 +81,26 @@ func (f FileRef) Validate() error {
 	return nil
 }
 
+// Sanitize replaces every filename in the manifest with its sanitized form.
+// It is the single API-boundary sanitization point for finalize: callers
+// sanitize once here before validation, key computation, and storage, so read
+// paths use the stored names verbatim. The error names the offending field.
+func (m *Manifest) Sanitize() error {
+	for i := range m.Tracks {
+		clean, err := SanitizeFilename(m.Tracks[i].Filename)
+		if err != nil {
+			return fmt.Errorf("tracks[%d].filename: %w", i, err)
+		}
+		m.Tracks[i].Filename = clean
+	}
+	clean, err := SanitizeFilename(m.Subtitle.Filename)
+	if err != nil {
+		return fmt.Errorf("subtitle.filename: %w", err)
+	}
+	m.Subtitle.Filename = clean
+	return nil
+}
+
 // Files returns every file in the manifest (tracks then subtitle) as a flat
 // list for iteration by api and blob callers.
 func (m Manifest) Files() []FileRef {

@@ -74,6 +74,9 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /api/v1/catalog", s.auth(authRead, http.HandlerFunc(s.listCatalog)))
 	s.mux.Handle("GET /api/v1/sessions/{id}", s.auth(authRead, http.HandlerFunc(s.getSession)))
 	s.mux.Handle("POST /api/v1/uploads", s.auth(authAdmin, http.HandlerFunc(s.negotiateUploads)))
+	s.mux.Handle("POST /api/v1/sessions", s.auth(authAdmin, http.HandlerFunc(s.createSession)))
+	s.mux.Handle("PUT /api/v1/sessions/{id}", s.auth(authAdmin, http.HandlerFunc(s.updateSession)))
+	s.mux.Handle("DELETE /api/v1/sessions/{id}", s.auth(authAdmin, http.HandlerFunc(s.deleteSession)))
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
