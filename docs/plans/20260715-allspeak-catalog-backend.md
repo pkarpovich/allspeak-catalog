@@ -313,11 +313,11 @@ Note on `POST /uploads` and session ids: the object key embeds the session id, s
 
 ### Task 12: Verify acceptance criteria
 
-- [ ] every endpoint from the API contract table exists with the specified auth, status codes, and shapes (walk the table against the router and tests)
-- [ ] every validation rule from Technical Details has a covering test
-- [ ] every Non-goal is still a non-goal (no scope creep: no extra endpoints, no config knobs beyond the table)
-- [ ] run full test suite: `make test` - green, `-race` clean
-- [ ] `golangci-lint run` - zero issues; coverage ≥80%
+- [x] every endpoint from the API contract table exists with the specified auth, status codes, and shapes (walk the table against the router and tests)
+- [x] every validation rule from Technical Details has a covering test
+- [x] every Non-goal is still a non-goal (no scope creep: no extra endpoints, no config knobs beyond the table)
+- [x] run full test suite: `make test` - green, `-race` clean
+- [x] `golangci-lint run` - zero issues; coverage ≥80% (measured 84.2% aggregate)
 
 ### Task 13: Update documentation
 
