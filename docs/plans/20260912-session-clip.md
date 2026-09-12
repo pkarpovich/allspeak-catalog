@@ -226,18 +226,21 @@ fixes anything that turns out not to hold.
 **Files:**
 - Modify: `internal/api/finalize_test.go`
 
-- [ ] add a clip-bearing manifest builder next to `sampleManifest()`
-- [ ] test `POST /api/v1/sessions` with a clip whose object exists (`existsAll()`): `200`, revision 1,
+- [x] add a clip-bearing manifest builder next to `sampleManifest()`
+- [x] test `POST /api/v1/sessions` with a clip whose object exists (`existsAll()`): `200`, revision 1,
       and the stored session's manifest (captured through the session-store mock) contains the clip
       with its sanitized filename
-- [ ] test `POST /api/v1/sessions` with a clip whose object is missing: same status and body shape as
+- [x] test `POST /api/v1/sessions` with a clip whose object is missing: same status and body shape as
       the existing missing-track case, with the clip's sha256 in `missing`
-- [ ] test `POST /api/v1/sessions` with an invalid clip (bad sha256): `400` with a message starting
-      `manifest.clip.sha256`
-- [ ] test `PUT /api/v1/sessions/{id}` with a manifest that adds a clip to an existing session:
+- [x] test `POST /api/v1/sessions` with an invalid clip (bad sha256): `400` with a message starting
+      `manifest.clip.sha256` (table also covers `clip.size` and `clip.filename`)
+- [x] test `PUT /api/v1/sessions/{id}` with a manifest that adds a clip to an existing session:
       `200` and the revision returned by the store mock; and with a manifest that drops the clip:
       `200`, no error (dropping is just a manifest without the key)
-- [ ] run `mise run test` and `mise run lint` - must pass before task 4
+- [x] run `mise run test` and `mise run lint` - must pass before task 4
+      (⚠️ same broken `mise` shim as tasks 1-2; ran `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues.
+      No production code changed - `decodeFinalize` and `verifyObjects` already handled the clip)
 
 ### Task 4: Verify acceptance criteria
 
