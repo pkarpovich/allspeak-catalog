@@ -1,15 +1,15 @@
 # allspeak-catalog
 
-A small Go service that distributes prepared Allspeak sessions (film dub audio tracks plus subtitles)
-online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
+A small Go service that distributes prepared Allspeak sessions (film dub audio tracks, subtitles, and
+an optional first-line clip) online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
 keeps file payloads in Cloudflare R2, transferred exclusively through presigned URLs - the service
 stays on the JSON control plane and never proxies file bytes. The Mac uploads a session once; the
 iOS app imports it from anywhere later.
 
 A session in the catalog is a `title` plus a monotonically increasing `revision` plus a manifest of
-files: one or more audio tracks and exactly one subtitle. Content is addressed by sha256 in R2, so
-publishing a new revision uploads only new files and interrupted uploads resume by re-requesting
-upload URLs.
+files: one or more audio tracks, exactly one subtitle, and an optional short clip cut around the
+film's first spoken line. Content is addressed by sha256 in R2, so publishing a new revision uploads
+only new files and interrupted uploads resume by re-requesting upload URLs.
 
 ## API
 
@@ -21,7 +21,7 @@ URLs expire one hour after they are issued.
 |---|---|---|
 | `GET /health` | none | `200 {"status":"ok"}` (also at `/api/health` - the public URL behind the Traefik `/api` prefix) |
 | `GET /api/v1/catalog` | read | List sessions as `{"sessions":[{id, title, revision, updatedAt, totalSize, trackLabels[]}]}` |
-| `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET) and the response carries `urlsExpireAt`; `404` if unknown |
+| `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET), including `clip` when the session has one, and the response carries `urlsExpireAt`; `404` if unknown |
 | `POST /api/v1/uploads` | admin | Body `{"sessionId": "<uuid or null>", "files":[{"sha256","size","filename"}]}` (`files` must be non-empty); for a new session the server allocates and returns `sessionId`. Response `{"sessionId","files":[...]}`, per file `{"sha256","filename","exists":true}` or `{"sha256","filename","uploadUrl"}` (presigned PUT). Never touches the catalog table |
 | `POST /api/v1/sessions` | admin | Finalize a new session: `{"sessionId","title","manifest"}`; verifies every referenced object exists in R2, inserts with `revision=1`, returns `{"id","revision"}`. `409` if the id already exists |
 | `PUT /api/v1/sessions/{id}` | admin | Finalize a new revision: body same as above minus `sessionId`; `404` if unknown id; verifies objects; increments `revision`; returns `{"id","revision"}` |
@@ -29,8 +29,9 @@ URLs expire one hour after they are issued.
 
 Error semantics: `401` missing/unknown token; `403` read token on an admin endpoint; `404` unknown
 session id; `409` finalize with missing objects (body `{"missing":["<sha256>", ...]}`) or duplicate
-create id; `400` validation failure (body names the offending field). Every error response except
-`409` carries `{"error":"<message>"}`.
+create id; `400` validation failure (body names the offending field); `502` when R2 is unreachable
+(presigning a URL or checking an object failed). Every error response except `409` carries
+`{"error":"<message>"}`.
 
 ### Manifest shape
 
@@ -40,15 +41,18 @@ The `manifest` in both finalize endpoints, and the storage/wire format for a ses
 {
   "tracks": [{"label": "ft.sidon", "sortOrder": 0, "isDefault": true,
               "filename": "film.m4a", "size": 73400320, "sha256": "<64 hex>"}],
-  "subtitle": {"filename": "film.srt", "size": 152000, "sha256": "<64 hex>"}
+  "subtitle": {"filename": "film.srt", "size": 152000, "sha256": "<64 hex>"},
+  "clip": {"filename": "film.first-line.mp4", "size": 6200000, "sha256": "<64 hex>"}
 }
 ```
 
 Validation rules: `title` non-empty and at most 200 chars after trimming; at least one track; each
 track `label` non-empty; exactly one track with `isDefault=true`; subtitle required; every file
-`sha256` exactly 64 lowercase hex chars, `size` > 0, `filename` non-empty after sanitization.
-Filenames are sanitized once at the API boundary (last path component, keep `[A-Za-z0-9._ -]`,
-replace the rest with `_`), so stored manifests and R2 keys always use the sanitized names.
+`sha256` exactly 64 lowercase hex chars, `size` > 0, `filename` non-empty after sanitization. The
+`clip` is optional - omit the key for a session without one; when present it is validated like the
+subtitle and counts toward `totalSize`. Filenames are sanitized once at the API boundary (last path
+component, keep `[A-Za-z0-9._ -]`, replace the rest with `_`), so stored manifests and R2 keys always
+use the sanitized names.
 
 ## Config
 
@@ -112,8 +116,9 @@ R2 values, and `DB_PATH=/data/catalog.db`. After a deploy, `https://<domain>/api
 
 ## Smoke checklist
 
-End-to-end check with a real prepared film session (3 m4a tracks of ~70MB plus one srt), matching the
-workflow the catalog exists to serve. Set `API` and `ADMIN` first, then work through the steps.
+End-to-end check with a real prepared film session (3 m4a tracks of ~70MB, one srt, and a first-line
+clip), matching the workflow the catalog exists to serve. Set `API` and `ADMIN` first, then work
+through the steps.
 
 ```sh
 export API=https://<domain>/api/v1
@@ -122,7 +127,7 @@ export READ="Authorization: Bearer <read-token>"
 ```
 
 1. Compute size and sha256 for every file (macOS): `stat -f%z track1.m4a` and
-   `shasum -a 256 track1.m4a`. Do this for the three tracks and the subtitle.
+   `shasum -a 256 track1.m4a`. Do this for the three tracks, the subtitle, and the clip.
 
 2. Negotiate uploads (no `sessionId` yet, so the server allocates one):
 
@@ -133,7 +138,8 @@ export READ="Authorization: Bearer <read-token>"
        {"sha256":"<t1>","size":73400320,"filename":"track1.m4a"},
        {"sha256":"<t2>","size":71000000,"filename":"track2.m4a"},
        {"sha256":"<t3>","size":72000000,"filename":"track3.m4a"},
-       {"sha256":"<sub>","size":152000,"filename":"film.srt"}
+       {"sha256":"<sub>","size":152000,"filename":"film.srt"},
+       {"sha256":"<clip>","size":6200000,"filename":"film.first-line.mp4"}
      ]
    }'
    ```
@@ -163,7 +169,8 @@ export READ="Authorization: Bearer <read-token>"
          {"label":"alt-1","sortOrder":1,"isDefault":false,"filename":"track2.m4a","size":71000000,"sha256":"<t2>"},
          {"label":"alt-2","sortOrder":2,"isDefault":false,"filename":"track3.m4a","size":72000000,"sha256":"<t3>"}
        ],
-       "subtitle": {"filename":"film.srt","size":152000,"sha256":"<sub>"}
+       "subtitle": {"filename":"film.srt","size":152000,"sha256":"<sub>"},
+       "clip": {"filename":"film.first-line.mp4","size":6200000,"sha256":"<clip>"}
      }
    }'
    ```
@@ -191,8 +198,11 @@ export READ="Authorization: Bearer <read-token>"
    ```sh
    curl -s -X PUT -H "$ADMIN" -H 'Content-Type: application/json' "$API/sessions/<sessionId>" -d '{
      "title": "My Film",
-     "manifest": { "tracks": [ ... revised ... ], "subtitle": { ... } }
+     "manifest": { "tracks": [ ... revised ... ], "subtitle": { ... }, "clip": { ... } }
    }'
    ```
+
+   Adding a clip to a session that shipped without one is the same move: upload the clip, then `PUT`
+   the manifest with the extra `clip` entry. Dropping it is a `PUT` without the key.
 
    Expect `{"id":"<sessionId>","revision":2}`, and confirm the catalog now shows `revision:2`.

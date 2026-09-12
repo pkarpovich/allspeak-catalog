@@ -32,6 +32,7 @@ type Track struct {
 type Manifest struct {
 	Tracks   []Track `json:"tracks"`
 	Subtitle FileRef `json:"subtitle"`
+	Clip     FileRef `json:"clip,omitzero"`
 }
 
 // Validate enforces every finalize validation rule, returning an error that
@@ -60,6 +61,11 @@ func (m Manifest) Validate() error {
 	}
 	if err := m.Subtitle.Validate(); err != nil {
 		return fmt.Errorf("subtitle.%w", err)
+	}
+	if m.Clip != (FileRef{}) {
+		if err := m.Clip.Validate(); err != nil {
+			return fmt.Errorf("clip.%w", err)
+		}
 	}
 	return nil
 }
@@ -97,17 +103,28 @@ func (m *Manifest) Sanitize() error {
 		return fmt.Errorf("subtitle.filename: %w", err)
 	}
 	m.Subtitle.Filename = clean
+	if m.Clip != (FileRef{}) {
+		clean, err := SanitizeFilename(m.Clip.Filename)
+		if err != nil {
+			return fmt.Errorf("clip.filename: %w", err)
+		}
+		m.Clip.Filename = clean
+	}
 	return nil
 }
 
-// Files returns every file in the manifest (tracks then subtitle) as a flat
-// list for iteration by api and blob callers.
+// Files returns every file in the manifest (tracks, subtitle, then the
+// optional clip) as a flat list for iteration by api and blob callers.
 func (m Manifest) Files() []FileRef {
-	files := make([]FileRef, 0, len(m.Tracks)+1)
+	files := make([]FileRef, 0, len(m.Tracks)+2)
 	for _, t := range m.Tracks {
 		files = append(files, t.FileRef)
 	}
-	return append(files, m.Subtitle)
+	files = append(files, m.Subtitle)
+	if m.Clip != (FileRef{}) {
+		files = append(files, m.Clip)
+	}
+	return files
 }
 
 // SanitizeFilename reduces name to its last path component, replaces every

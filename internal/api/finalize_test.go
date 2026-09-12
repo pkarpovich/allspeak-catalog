@@ -32,6 +32,10 @@ func sampleManifest() manifest.Manifest {
 	return sampleSession().Manifest
 }
 
+func sampleManifestWithClip() manifest.Manifest {
+	return sampleSessionWithClip().Manifest
+}
+
 func finalizeBody(t *testing.T, req finalizeRequest) string {
 	t.Helper()
 	b, err := json.Marshal(req)
@@ -43,6 +47,15 @@ func existsAll() *mocks.ObjectStoreMock {
 	return &mocks.ObjectStoreMock{
 		ExistsFunc: func(_ context.Context, _ string) (bool, error) { return true, nil },
 	}
+}
+
+func errorMessage(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp struct {
+		Error string `json:"error"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	return resp.Error
 }
 
 func decodeFinalizeResponse(t *testing.T, rec *httptest.ResponseRecorder) finalizeResponse {
@@ -503,4 +516,165 @@ func TestFinalizeRequiresAdmin(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, rec.Code)
 		})
 	}
+}
+
+func TestCreateSessionWithClip(t *testing.T) {
+	var created store.Session
+	var existsKeys []string
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			existsKeys = append(existsKeys, key)
+			return true, nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		CreateFunc: func(_ context.Context, session store.Session) error {
+			created = session
+			return nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	m := sampleManifestWithClip()
+	m.Clip.Filename = "clips/film first-line!.mp4"
+	body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: m})
+	rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	resp := decodeFinalizeResponse(t, rec)
+	assert.Equal(t, validSessionID, resp.ID)
+	assert.Equal(t, 1, resp.Revision)
+
+	want := sampleManifestWithClip()
+	want.Clip.Filename = "film first-line_.mp4"
+	assert.Equal(t, want, created.Manifest)
+
+	assert.Equal(t, []string{
+		blob.Key(validSessionID, shaTrackA, "film.m4a"),
+		blob.Key(validSessionID, shaTrackB, "film_alt.m4a"),
+		blob.Key(validSessionID, shaSubtitle, "film.srt"),
+		blob.Key(validSessionID, shaClip, "film first-line_.mp4"),
+	}, existsKeys)
+}
+
+func TestCreateSessionMissingClipObject(t *testing.T) {
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			return !strings.Contains(key, shaClip), nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		CreateFunc: func(_ context.Context, _ store.Session) error { return nil },
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: sampleManifestWithClip()})
+	rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+	require.Equal(t, http.StatusConflict, rec.Code)
+
+	var resp struct {
+		Missing []string `json:"missing"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, []string{shaClip}, resp.Missing)
+	assert.Empty(t, sessionStore.CreateCalls())
+}
+
+func TestCreateSessionInvalidClip(t *testing.T) {
+	tests := []struct {
+		name       string
+		mutate     func(m *manifest.Manifest)
+		wantPrefix string
+	}{
+		{
+			name:       "bad sha256",
+			mutate:     func(m *manifest.Manifest) { m.Clip.SHA256 = "abc" },
+			wantPrefix: "manifest.clip.sha256",
+		},
+		{
+			name:       "zero size",
+			mutate:     func(m *manifest.Manifest) { m.Clip.Size = 0 },
+			wantPrefix: "manifest.clip.size",
+		},
+		{
+			name:       "empty filename",
+			mutate:     func(m *manifest.Manifest) { m.Clip.Filename = "/" },
+			wantPrefix: "manifest.clip.filename",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objectStore := existsAll()
+			s := serverWith(&mocks.SessionStoreMock{}, objectStore)
+
+			m := sampleManifestWithClip()
+			tt.mutate(&m)
+			body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: m})
+			rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.True(t, strings.HasPrefix(errorMessage(t, rec), tt.wantPrefix), "got %q", errorMessage(t, rec))
+			assert.Empty(t, objectStore.ExistsCalls(), "must reject invalid clip before touching blob")
+		})
+	}
+}
+
+func TestUpdateSessionAddsClip(t *testing.T) {
+	var updated store.Session
+	var existsKeys []string
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			existsKeys = append(existsKeys, key)
+			return true, nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSession(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, session store.Session) (int, error) {
+			updated = session
+			return 3, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifestWithClip()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	resp := decodeFinalizeResponse(t, rec)
+	assert.Equal(t, 3, resp.Revision)
+	assert.Equal(t, sampleManifestWithClip(), updated.Manifest)
+	assert.Contains(t, existsKeys, blob.Key(validSessionID, shaClip, "film.first-line.mp4"))
+}
+
+func TestUpdateSessionDropsClip(t *testing.T) {
+	var updated store.Session
+	var existsKeys []string
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			existsKeys = append(existsKeys, key)
+			return true, nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSessionWithClip(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, session store.Session) (int, error) {
+			updated = session
+			return 4, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifest()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	resp := decodeFinalizeResponse(t, rec)
+	assert.Equal(t, 4, resp.Revision)
+	assert.Equal(t, sampleManifest(), updated.Manifest)
+	assert.Equal(t, manifest.FileRef{}, updated.Manifest.Clip)
+	assert.NotContains(t, existsKeys, blob.Key(validSessionID, shaClip, "film.first-line.mp4"))
 }

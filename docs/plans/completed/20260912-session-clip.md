@@ -171,25 +171,28 @@ in that order.
 - Modify: `internal/manifest/manifest.go`
 - Modify: `internal/manifest/manifest_test.go`
 
-- [ ] add `Clip FileRef` with tag `json:"clip,omitzero"` to `Manifest`, after `Subtitle`
-- [ ] in `Validate()`, after the subtitle checks: when `m.Clip != (FileRef{})`, run `m.Clip.Validate()`
+- [x] add `Clip FileRef` with tag `json:"clip,omitzero"` to `Manifest`, after `Subtitle`
+- [x] in `Validate()`, after the subtitle checks: when `m.Clip != (FileRef{})`, run `m.Clip.Validate()`
       and wrap the error with the `clip.` prefix (same shape as the `subtitle.` wrap)
-- [ ] in `Sanitize()`: when the clip is non-zero, sanitize `m.Clip.Filename` and wrap the error as
+- [x] in `Sanitize()`: when the clip is non-zero, sanitize `m.Clip.Filename` and wrap the error as
       `clip.filename: ...`
-- [ ] in `Files()`: append `m.Clip` after the subtitle when non-zero; grow the initial capacity
+- [x] in `Files()`: append `m.Clip` after the subtitle when non-zero; grow the initial capacity
       accordingly
-- [ ] add a `clip()` helper in `manifest_test.go` next to `subtitle()` (`film.first-line.mp4`, a
+- [x] add a `clip()` helper in `manifest_test.go` next to `subtitle()` (`film.first-line.mp4`, a
       new sha constant) and a `validManifestWithClip()` built from `validManifest()`
-- [ ] extend `TestManifestValidate` cases: valid with clip; clip with bad sha256 fails with an
+- [x] extend `TestManifestValidate` cases: valid with clip; clip with bad sha256 fails with an
       error containing `clip.sha256`; clip with size 0 fails with `clip.size`; clip with an empty
       filename after sanitization fails with `clip.filename`
-- [ ] extend the JSON round-trip test: a manifest with a clip survives marshal/unmarshal; marshalling
+- [x] extend the JSON round-trip test: a manifest with a clip survives marshal/unmarshal; marshalling
       a manifest without a clip produces JSON that does not contain the substring `"clip"`
-- [ ] extend the `Sanitize` test: a clip filename with a path and forbidden characters is reduced to
+- [x] extend the `Sanitize` test: a clip filename with a path and forbidden characters is reduced to
       its sanitized base name; a manifest without a clip stays without one after `Sanitize()`
-- [ ] extend the `Files()` test: with a clip the list is tracks, subtitle, clip (length +1); without
+- [x] extend the `Files()` test: with a clip the list is tracks, subtitle, clip (length +1); without
       a clip the list is unchanged
-- [ ] run `mise run test` and `mise run lint` - must pass before task 2
+- [x] run `mise run test` and `mise run lint` - must pass before task 2
+      (⚠️ the `mise` shim is broken in this sandbox - no `.env` and no go@1.25 shim for
+      golangci-lint; ran the underlying `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
 
 ### Task 2: Clip in the session detail response
 
@@ -197,19 +200,22 @@ in that order.
 - Modify: `internal/api/read.go`
 - Modify: `internal/api/read_test.go`
 
-- [ ] add `Clip fileWithURL` with tag `json:"clip,omitzero"` to `sessionDetail`, after `Subtitle`
-- [ ] in `sessionDetail()`: when `session.Manifest.Clip` is non-zero, presign it with `presignFile`
+- [x] add `Clip fileWithURL` with tag `json:"clip,omitzero"` to `sessionDetail`, after `Subtitle`
+- [x] in `sessionDetail()`: when `session.Manifest.Clip` is non-zero, presign it with `presignFile`
       and set `Clip`; a presign failure returns the error like the subtitle path does
-- [ ] extend `sampleSession()` usage: add a `sampleSessionWithClip()` (or a clip-bearing variant)
+      (extracted as a `presignClip` method on `Server` to keep `sessionDetail()` flat)
+- [x] extend `sampleSession()` usage: add a `sampleSessionWithClip()` (or a clip-bearing variant)
       in `read_test.go` so both shapes are available to tests
-- [ ] test `GET /api/v1/sessions/{id}` with a clip: response `clip` has filename, size, sha256 and a
+- [x] test `GET /api/v1/sessions/{id}` with a clip: response `clip` has filename, size, sha256 and a
       `url` produced by the object-store mock for `blob.Key(id, sha256, filename)`
-- [ ] test `GET /api/v1/sessions/{id}` without a clip: the raw response body does not contain the
+- [x] test `GET /api/v1/sessions/{id}` without a clip: the raw response body does not contain the
       substring `"clip"`
-- [ ] test presign failure on the clip returns `502` like an existing presign-failure test
-- [ ] test the catalog list: `totalSize` for a session with a clip equals tracks + subtitle + clip
+- [x] test presign failure on the clip returns `502` like an existing presign-failure test
+- [x] test the catalog list: `totalSize` for a session with a clip equals tracks + subtitle + clip
       sizes; `trackLabels` unchanged
-- [ ] run `mise run test` and `mise run lint` - must pass before task 3
+- [x] run `mise run test` and `mise run lint` - must pass before task 3
+      (⚠️ same broken `mise` shim as task 1; ran `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
 
 ### Task 3: Finalize accepts and verifies the clip
 
@@ -220,47 +226,56 @@ fixes anything that turns out not to hold.
 **Files:**
 - Modify: `internal/api/finalize_test.go`
 
-- [ ] add a clip-bearing manifest builder next to `sampleManifest()`
-- [ ] test `POST /api/v1/sessions` with a clip whose object exists (`existsAll()`): `200`, revision 1,
+- [x] add a clip-bearing manifest builder next to `sampleManifest()`
+- [x] test `POST /api/v1/sessions` with a clip whose object exists (`existsAll()`): `200`, revision 1,
       and the stored session's manifest (captured through the session-store mock) contains the clip
       with its sanitized filename
-- [ ] test `POST /api/v1/sessions` with a clip whose object is missing: same status and body shape as
+- [x] test `POST /api/v1/sessions` with a clip whose object is missing: same status and body shape as
       the existing missing-track case, with the clip's sha256 in `missing`
-- [ ] test `POST /api/v1/sessions` with an invalid clip (bad sha256): `400` with a message starting
-      `manifest.clip.sha256`
-- [ ] test `PUT /api/v1/sessions/{id}` with a manifest that adds a clip to an existing session:
+- [x] test `POST /api/v1/sessions` with an invalid clip (bad sha256): `400` with a message starting
+      `manifest.clip.sha256` (table also covers `clip.size` and `clip.filename`)
+- [x] test `PUT /api/v1/sessions/{id}` with a manifest that adds a clip to an existing session:
       `200` and the revision returned by the store mock; and with a manifest that drops the clip:
       `200`, no error (dropping is just a manifest without the key)
-- [ ] run `mise run test` and `mise run lint` - must pass before task 4
+- [x] run `mise run test` and `mise run lint` - must pass before task 4
+      (⚠️ same broken `mise` shim as tasks 1-2; ran `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues.
+      No production code changed - `decodeFinalize` and `verifyObjects` already handled the clip)
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] verify all requirements from Overview are implemented: optional clip in manifest, presigned in
+- [x] verify all requirements from Overview are implemented: optional clip in manifest, presigned in
       detail, counted in `totalSize`, verified at finalize, absent key when no clip
-- [ ] verify edge cases: clip-only manifest without subtitle still fails on `subtitle: required`;
+      (`Manifest.Clip` with `omitzero`; `Server.presignClip`; `totalSize` and `verifyObjects` both
+      iterate `Files()`, which appends the clip last when non-zero)
+- [x] verify edge cases: clip-only manifest without subtitle still fails on `subtitle: required`;
       zero-value clip after `Sanitize()` stays zero; `omitzero` drops the key on both manifest and
       detail
-- [ ] run full test suite: `mise run test`
-- [ ] run lint: `mise run lint`
-- [ ] manual acceptance against `mise run dev` with a throwaway session id: request upload URLs for
-      two small files (a text "subtitle" and a text "clip") and one "track" via `POST /uploads`, PUT
-      the bytes, finalize with a manifest containing the clip, then `GET` the detail and confirm
-      `clip.url` downloads the same bytes; finalize a second session without a clip and confirm the
-      detail JSON has no `clip` key; delete both sessions
+      (added the `clip without subtitle` case to `TestManifestValidate`; the other two were already
+      covered by `TestManifestSanitizeWithoutClip`, `TestManifestJSONRoundTrip` and
+      `TestGetSessionWithoutClipOmitsKey`)
+- [x] run full test suite: `mise run test`
+- [x] run lint: `mise run lint`
+      (⚠️ same broken `mise` shim as tasks 1-3; ran `gofmt -s -l .`, `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
+- [x] manual acceptance against `mise run dev` (skipped - not automatable: needs a live server,
+      real R2 credentials and out-of-band `curl` uploads; the same paths are covered by the
+      finalize and detail tests)
 
 ### Task 5: Update documentation
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] update the intro sentence that describes a session ("one or more audio tracks and exactly one
+- [x] update the intro sentence that describes a session ("one or more audio tracks and exactly one
       subtitle") to mention the optional clip
-- [ ] update the manifest shape block to show the optional `clip` entry and the validation-rules
+- [x] update the manifest shape block to show the optional `clip` entry and the validation-rules
       paragraph to state it is optional and validated like the subtitle when present
-- [ ] update the detail-endpoint row to mention `clip` is presigned like every other file when present
-- [ ] update the publish walkthrough: the sha256 step and the finalize example include the clip; the
+- [x] update the detail-endpoint row to mention `clip` is presigned like every other file when present
+- [x] update the publish walkthrough: the sha256 step and the finalize example include the clip; the
       new-revision example shows adding a clip as one way to bump a revision
-- [ ] move this plan to `docs/plans/completed/`
+      (also the uploads-negotiation body and the smoke-checklist intro, for a consistent walkthrough)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 

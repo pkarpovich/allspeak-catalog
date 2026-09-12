@@ -19,6 +19,7 @@ const (
 	shaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	shaC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	shaD = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
 func testManifest(defaultSHA string) manifest.Manifest {
@@ -259,6 +260,7 @@ func TestManifestJSONFidelity(t *testing.T) {
 			{Label: "alt dub", SortOrder: 1, IsDefault: false, FileRef: manifest.FileRef{Filename: "b.m4a", Size: 200, SHA256: shaB}},
 		},
 		Subtitle: manifest.FileRef{Filename: "s.srt", Size: 50, SHA256: shaC},
+		Clip:     manifest.FileRef{Filename: "c.mp4", Size: 300, SHA256: shaD},
 	}
 	require.NoError(t, st.Create(context.Background(), Session{ID: "multi", Title: strings.Repeat("t", 10), Manifest: full}))
 

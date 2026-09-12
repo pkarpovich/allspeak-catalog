@@ -59,6 +59,7 @@ type sessionDetail struct {
 	UpdatedAt    time.Time      `json:"updatedAt"`
 	Tracks       []trackWithURL `json:"tracks"`
 	Subtitle     fileWithURL    `json:"subtitle"`
+	Clip         fileWithURL    `json:"clip,omitzero"`
 	URLsExpireAt time.Time      `json:"urlsExpireAt"`
 }
 
@@ -115,6 +116,10 @@ func (s *Server) sessionDetail(ctx context.Context, session store.Session) (sess
 	if err != nil {
 		return sessionDetail{}, err
 	}
+	clip, err := s.presignClip(ctx, session)
+	if err != nil {
+		return sessionDetail{}, err
+	}
 	return sessionDetail{
 		ID:           session.ID,
 		Title:        session.Title,
@@ -123,8 +128,20 @@ func (s *Server) sessionDetail(ctx context.Context, session store.Session) (sess
 		UpdatedAt:    session.UpdatedAt,
 		Tracks:       tracks,
 		Subtitle:     fileWithURL{FileRef: session.Manifest.Subtitle, URL: subtitleURL},
+		Clip:         clip,
 		URLsExpireAt: time.Now().UTC().Add(blob.PresignExpiry),
 	}, nil
+}
+
+func (s *Server) presignClip(ctx context.Context, session store.Session) (fileWithURL, error) {
+	if session.Manifest.Clip == (manifest.FileRef{}) {
+		return fileWithURL{}, nil
+	}
+	url, err := s.presignFile(ctx, session.ID, session.Manifest.Clip)
+	if err != nil {
+		return fileWithURL{}, err
+	}
+	return fileWithURL{FileRef: session.Manifest.Clip, URL: url}, nil
 }
 
 func (s *Server) presignFile(ctx context.Context, sessionID string, f manifest.FileRef) (string, error) {
