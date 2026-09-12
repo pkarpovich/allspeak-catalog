@@ -1,7 +1,7 @@
 # allspeak-catalog
 
-A small Go service that distributes prepared Allspeak sessions (film dub audio tracks plus subtitles)
-online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
+A small Go service that distributes prepared Allspeak sessions (film dub audio tracks, subtitles, and
+an optional first-line clip) online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
 keeps file payloads in Cloudflare R2, transferred exclusively through presigned URLs - the service
 stays on the JSON control plane and never proxies file bytes. The Mac uploads a session once; the
 iOS app imports it from anywhere later.
@@ -29,8 +29,9 @@ URLs expire one hour after they are issued.
 
 Error semantics: `401` missing/unknown token; `403` read token on an admin endpoint; `404` unknown
 session id; `409` finalize with missing objects (body `{"missing":["<sha256>", ...]}`) or duplicate
-create id; `400` validation failure (body names the offending field). Every error response except
-`409` carries `{"error":"<message>"}`.
+create id; `400` validation failure (body names the offending field); `502` when R2 is unreachable
+(presigning a URL or checking an object failed). Every error response except `409` carries
+`{"error":"<message>"}`.
 
 ### Manifest shape
 
