@@ -200,19 +200,22 @@ in that order.
 - Modify: `internal/api/read.go`
 - Modify: `internal/api/read_test.go`
 
-- [ ] add `Clip fileWithURL` with tag `json:"clip,omitzero"` to `sessionDetail`, after `Subtitle`
-- [ ] in `sessionDetail()`: when `session.Manifest.Clip` is non-zero, presign it with `presignFile`
+- [x] add `Clip fileWithURL` with tag `json:"clip,omitzero"` to `sessionDetail`, after `Subtitle`
+- [x] in `sessionDetail()`: when `session.Manifest.Clip` is non-zero, presign it with `presignFile`
       and set `Clip`; a presign failure returns the error like the subtitle path does
-- [ ] extend `sampleSession()` usage: add a `sampleSessionWithClip()` (or a clip-bearing variant)
+      (extracted as a `presignClip` method on `Server` to keep `sessionDetail()` flat)
+- [x] extend `sampleSession()` usage: add a `sampleSessionWithClip()` (or a clip-bearing variant)
       in `read_test.go` so both shapes are available to tests
-- [ ] test `GET /api/v1/sessions/{id}` with a clip: response `clip` has filename, size, sha256 and a
+- [x] test `GET /api/v1/sessions/{id}` with a clip: response `clip` has filename, size, sha256 and a
       `url` produced by the object-store mock for `blob.Key(id, sha256, filename)`
-- [ ] test `GET /api/v1/sessions/{id}` without a clip: the raw response body does not contain the
+- [x] test `GET /api/v1/sessions/{id}` without a clip: the raw response body does not contain the
       substring `"clip"`
-- [ ] test presign failure on the clip returns `502` like an existing presign-failure test
-- [ ] test the catalog list: `totalSize` for a session with a clip equals tracks + subtitle + clip
+- [x] test presign failure on the clip returns `502` like an existing presign-failure test
+- [x] test the catalog list: `totalSize` for a session with a clip equals tracks + subtitle + clip
       sizes; `trackLabels` unchanged
-- [ ] run `mise run test` and `mise run lint` - must pass before task 3
+- [x] run `mise run test` and `mise run lint` - must pass before task 3
+      (⚠️ same broken `mise` shim as task 1; ran `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
 
 ### Task 3: Finalize accepts and verifies the clip
 

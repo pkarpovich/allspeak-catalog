@@ -25,6 +25,7 @@ const (
 	shaTrackA   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	shaTrackB   = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	shaSubtitle = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	shaClip     = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
 func serverWith(sessionStore SessionStore, objectStore ObjectStore) *Server {
@@ -71,6 +72,12 @@ func sampleSession() store.Session {
 			Subtitle: manifest.FileRef{Filename: "film.srt", Size: 152000, SHA256: shaSubtitle},
 		},
 	}
+}
+
+func sampleSessionWithClip() store.Session {
+	session := sampleSession()
+	session.Manifest.Clip = manifest.FileRef{Filename: "film.first-line.mp4", Size: 6200000, SHA256: shaClip}
+	return session
 }
 
 func TestListCatalog(t *testing.T) {
@@ -250,6 +257,102 @@ func TestGetSessionPresignFailure(t *testing.T) {
 	objectStore := &mocks.ObjectStoreMock{
 		PresignGetFunc: func(_ context.Context, _ string) (string, error) {
 			return "", errors.New("presign boom")
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+}
+
+func TestListCatalogTotalSizeIncludesClip(t *testing.T) {
+	session := sampleSessionWithClip()
+	sessionStore := &mocks.SessionStoreMock{
+		ListFunc: func(_ context.Context) ([]store.Session, error) {
+			return []store.Session{session}, nil
+		},
+	}
+	s := serverWith(sessionStore, &mocks.ObjectStoreMock{})
+
+	rec := readGet(s, "/api/v1/catalog")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Sessions []catalogItem `json:"sessions"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Sessions, 1)
+	assert.Equal(t, int64(73400320+70000000+152000+6200000), resp.Sessions[0].TotalSize)
+	assert.Equal(t, []string{"ft.sidon", "alt"}, resp.Sessions[0].TrackLabels)
+}
+
+func TestGetSessionWithClip(t *testing.T) {
+	session := sampleSessionWithClip()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			return "https://r2.example/" + key, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Clip struct {
+			Filename string `json:"filename"`
+			Size     int64  `json:"size"`
+			SHA256   string `json:"sha256"`
+			URL      string `json:"url"`
+		} `json:"clip"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+
+	assert.Equal(t, "film.first-line.mp4", resp.Clip.Filename)
+	assert.Equal(t, int64(6200000), resp.Clip.Size)
+	assert.Equal(t, shaClip, resp.Clip.SHA256)
+	wantKey := blob.Key(session.ID, shaClip, "film.first-line.mp4")
+	assert.Equal(t, "https://r2.example/"+wantKey, resp.Clip.URL)
+}
+
+func TestGetSessionWithoutClipOmitsKey(t *testing.T) {
+	session := sampleSession()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			return "https://r2.example/" + key, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.NotContains(t, rec.Body.String(), `"clip"`)
+}
+
+func TestGetSessionClipPresignFailure(t *testing.T) {
+	session := sampleSessionWithClip()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	clipKey := blob.Key(session.ID, shaClip, "film.first-line.mp4")
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			if key == clipKey {
+				return "", errors.New("presign boom")
+			}
+			return "https://r2.example/" + key, nil
 		},
 	}
 	s := serverWith(sessionStore, objectStore)
