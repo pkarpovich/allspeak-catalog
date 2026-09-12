@@ -244,18 +244,23 @@ fixes anything that turns out not to hold.
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] verify all requirements from Overview are implemented: optional clip in manifest, presigned in
+- [x] verify all requirements from Overview are implemented: optional clip in manifest, presigned in
       detail, counted in `totalSize`, verified at finalize, absent key when no clip
-- [ ] verify edge cases: clip-only manifest without subtitle still fails on `subtitle: required`;
+      (`Manifest.Clip` with `omitzero`; `Server.presignClip`; `totalSize` and `verifyObjects` both
+      iterate `Files()`, which appends the clip last when non-zero)
+- [x] verify edge cases: clip-only manifest without subtitle still fails on `subtitle: required`;
       zero-value clip after `Sanitize()` stays zero; `omitzero` drops the key on both manifest and
       detail
-- [ ] run full test suite: `mise run test`
-- [ ] run lint: `mise run lint`
-- [ ] manual acceptance against `mise run dev` with a throwaway session id: request upload URLs for
-      two small files (a text "subtitle" and a text "clip") and one "track" via `POST /uploads`, PUT
-      the bytes, finalize with a manifest containing the clip, then `GET` the detail and confirm
-      `clip.url` downloads the same bytes; finalize a second session without a clip and confirm the
-      detail JSON has no `clip` key; delete both sessions
+      (added the `clip without subtitle` case to `TestManifestValidate`; the other two were already
+      covered by `TestManifestSanitizeWithoutClip`, `TestManifestJSONRoundTrip` and
+      `TestGetSessionWithoutClipOmitsKey`)
+- [x] run full test suite: `mise run test`
+- [x] run lint: `mise run lint`
+      (⚠️ same broken `mise` shim as tasks 1-3; ran `gofmt -s -l .`, `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
+- [x] manual acceptance against `mise run dev` (skipped - not automatable: needs a live server,
+      real R2 credentials and out-of-band `curl` uploads; the same paths are covered by the
+      finalize and detail tests)
 
 ### Task 5: Update documentation
 

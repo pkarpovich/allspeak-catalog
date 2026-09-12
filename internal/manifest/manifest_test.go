@@ -123,6 +123,14 @@ func TestManifestValidate(t *testing.T) {
 			mutate: func(m *Manifest) { m.Clip = clip() },
 		},
 		{
+			name: "clip without subtitle",
+			mutate: func(m *Manifest) {
+				m.Clip = clip()
+				m.Subtitle = FileRef{}
+			},
+			wantErr: "subtitle: required",
+		},
+		{
 			name: "clip bad sha256",
 			mutate: func(m *Manifest) {
 				m.Clip = clip()
