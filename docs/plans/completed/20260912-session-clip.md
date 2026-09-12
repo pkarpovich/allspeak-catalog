@@ -267,14 +267,15 @@ fixes anything that turns out not to hold.
 **Files:**
 - Modify: `README.md`
 
-- [ ] update the intro sentence that describes a session ("one or more audio tracks and exactly one
+- [x] update the intro sentence that describes a session ("one or more audio tracks and exactly one
       subtitle") to mention the optional clip
-- [ ] update the manifest shape block to show the optional `clip` entry and the validation-rules
+- [x] update the manifest shape block to show the optional `clip` entry and the validation-rules
       paragraph to state it is optional and validated like the subtitle when present
-- [ ] update the detail-endpoint row to mention `clip` is presigned like every other file when present
-- [ ] update the publish walkthrough: the sha256 step and the finalize example include the clip; the
+- [x] update the detail-endpoint row to mention `clip` is presigned like every other file when present
+- [x] update the publish walkthrough: the sha256 step and the finalize example include the clip; the
       new-revision example shows adding a clip as one way to bump a revision
-- [ ] move this plan to `docs/plans/completed/`
+      (also the uploads-negotiation body and the smoke-checklist intro, for a consistent walkthrough)
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
