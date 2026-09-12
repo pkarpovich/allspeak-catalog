@@ -171,25 +171,28 @@ in that order.
 - Modify: `internal/manifest/manifest.go`
 - Modify: `internal/manifest/manifest_test.go`
 
-- [ ] add `Clip FileRef` with tag `json:"clip,omitzero"` to `Manifest`, after `Subtitle`
-- [ ] in `Validate()`, after the subtitle checks: when `m.Clip != (FileRef{})`, run `m.Clip.Validate()`
+- [x] add `Clip FileRef` with tag `json:"clip,omitzero"` to `Manifest`, after `Subtitle`
+- [x] in `Validate()`, after the subtitle checks: when `m.Clip != (FileRef{})`, run `m.Clip.Validate()`
       and wrap the error with the `clip.` prefix (same shape as the `subtitle.` wrap)
-- [ ] in `Sanitize()`: when the clip is non-zero, sanitize `m.Clip.Filename` and wrap the error as
+- [x] in `Sanitize()`: when the clip is non-zero, sanitize `m.Clip.Filename` and wrap the error as
       `clip.filename: ...`
-- [ ] in `Files()`: append `m.Clip` after the subtitle when non-zero; grow the initial capacity
+- [x] in `Files()`: append `m.Clip` after the subtitle when non-zero; grow the initial capacity
       accordingly
-- [ ] add a `clip()` helper in `manifest_test.go` next to `subtitle()` (`film.first-line.mp4`, a
+- [x] add a `clip()` helper in `manifest_test.go` next to `subtitle()` (`film.first-line.mp4`, a
       new sha constant) and a `validManifestWithClip()` built from `validManifest()`
-- [ ] extend `TestManifestValidate` cases: valid with clip; clip with bad sha256 fails with an
+- [x] extend `TestManifestValidate` cases: valid with clip; clip with bad sha256 fails with an
       error containing `clip.sha256`; clip with size 0 fails with `clip.size`; clip with an empty
       filename after sanitization fails with `clip.filename`
-- [ ] extend the JSON round-trip test: a manifest with a clip survives marshal/unmarshal; marshalling
+- [x] extend the JSON round-trip test: a manifest with a clip survives marshal/unmarshal; marshalling
       a manifest without a clip produces JSON that does not contain the substring `"clip"`
-- [ ] extend the `Sanitize` test: a clip filename with a path and forbidden characters is reduced to
+- [x] extend the `Sanitize` test: a clip filename with a path and forbidden characters is reduced to
       its sanitized base name; a manifest without a clip stays without one after `Sanitize()`
-- [ ] extend the `Files()` test: with a clip the list is tracks, subtitle, clip (length +1); without
+- [x] extend the `Files()` test: with a clip the list is tracks, subtitle, clip (length +1); without
       a clip the list is unchanged
-- [ ] run `mise run test` and `mise run lint` - must pass before task 2
+- [x] run `mise run test` and `mise run lint` - must pass before task 2
+      (⚠️ the `mise` shim is broken in this sandbox - no `.env` and no go@1.25 shim for
+      golangci-lint; ran the underlying `go test ./... -race` and
+      `/mise/installs/go/1.23.12/bin/golangci-lint run` instead: all pass, 0 issues)
 
 ### Task 2: Clip in the session detail response
 
