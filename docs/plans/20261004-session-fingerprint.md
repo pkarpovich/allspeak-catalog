@@ -136,21 +136,21 @@ the clip is.
 - Modify: `internal/manifest/manifest.go`
 - Modify: `internal/manifest/manifest_test.go`
 
-- [ ] add `Fingerprint FileRef` with tag `json:"fingerprint,omitzero"` to `Manifest`, after `Clip`
-- [ ] add the non-zero branches:
+- [x] add `Fingerprint FileRef` with tag `json:"fingerprint,omitzero"` to `Manifest`, after `Clip`
+- [x] add the non-zero branches:
   - `Validate()`: wrap errors as `fingerprint.`;
   - `Sanitize()`: wrap errors as `fingerprint.filename: ...`;
   - `Files()`: append it after the clip and grow the capacity.
-- [ ] add a `fingerprint()` test helper next to `clip()`, plus a manifest builder with both clip
+- [x] add a `fingerprint()` test helper next to `clip()`, plus a manifest builder with both clip
       and fingerprint
-- [ ] extend the validate, round-trip, sanitize and `Files()` tests the way the clip cases do:
+- [x] extend the validate, round-trip, sanitize and `Files()` tests the way the clip cases do:
   - valid;
   - bad sha256 → `fingerprint.sha256`;
   - size 0 → `fingerprint.size`;
   - empty filename → `fingerprint.filename`;
   - a manifest without a fingerprint marshals with no `"fingerprint"` substring;
   - `Files()` order is tracks, subtitle, clip, fingerprint.
-- [ ] run `mise run test` and `mise run lint` - must pass before task 2
+- [x] run `mise run test` and `mise run lint` - must pass before task 2
 
 ### Task 2: Fingerprint in the session detail response
 
