@@ -189,14 +189,14 @@ the clip is.
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] verify every point:
+- [x] verify every point:
   - optional fingerprint in the manifest;
   - presigned in the detail response;
   - counted in `totalSize`;
   - verified at finalize;
   - key absent when there is none;
   - sessions with a clip but no fingerprint are unchanged.
-- [ ] run the full test suite and lint
+- [x] run the full test suite and lint
 
 ### Task 5: [Final] Update documentation
 
