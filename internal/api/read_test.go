@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	shaTrackA   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	shaTrackB   = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	shaSubtitle = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	shaClip     = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	shaTrackA      = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	shaTrackB      = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	shaSubtitle    = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	shaClip        = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	shaFingerprint = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 )
 
 func serverWith(sessionStore SessionStore, objectStore ObjectStore) *Server {
@@ -77,6 +78,12 @@ func sampleSession() store.Session {
 func sampleSessionWithClip() store.Session {
 	session := sampleSession()
 	session.Manifest.Clip = manifest.FileRef{Filename: "film.first-line.mp4", Size: 6200000, SHA256: shaClip}
+	return session
+}
+
+func sampleSessionWithFingerprint() store.Session {
+	session := sampleSessionWithClip()
+	session.Manifest.Fingerprint = manifest.FileRef{Filename: "film.shazamcatalog", Size: 980000, SHA256: shaFingerprint}
 	return session
 }
 
@@ -350,6 +357,102 @@ func TestGetSessionClipPresignFailure(t *testing.T) {
 	objectStore := &mocks.ObjectStoreMock{
 		PresignGetFunc: func(_ context.Context, key string) (string, error) {
 			if key == clipKey {
+				return "", errors.New("presign boom")
+			}
+			return "https://r2.example/" + key, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+}
+
+func TestListCatalogTotalSizeIncludesFingerprint(t *testing.T) {
+	session := sampleSessionWithFingerprint()
+	sessionStore := &mocks.SessionStoreMock{
+		ListFunc: func(_ context.Context) ([]store.Session, error) {
+			return []store.Session{session}, nil
+		},
+	}
+	s := serverWith(sessionStore, &mocks.ObjectStoreMock{})
+
+	rec := readGet(s, "/api/v1/catalog")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Sessions []catalogItem `json:"sessions"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Sessions, 1)
+	assert.Equal(t, int64(73400320+70000000+152000+6200000+980000), resp.Sessions[0].TotalSize)
+}
+
+func TestGetSessionWithFingerprint(t *testing.T) {
+	session := sampleSessionWithFingerprint()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			return "https://r2.example/" + key, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Fingerprint struct {
+			Filename string `json:"filename"`
+			Size     int64  `json:"size"`
+			SHA256   string `json:"sha256"`
+			URL      string `json:"url"`
+		} `json:"fingerprint"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+
+	assert.Equal(t, "film.shazamcatalog", resp.Fingerprint.Filename)
+	assert.Equal(t, int64(980000), resp.Fingerprint.Size)
+	assert.Equal(t, shaFingerprint, resp.Fingerprint.SHA256)
+	wantKey := blob.Key(session.ID, shaFingerprint, "film.shazamcatalog")
+	assert.Equal(t, "https://r2.example/"+wantKey, resp.Fingerprint.URL)
+}
+
+func TestGetSessionWithoutFingerprintOmitsKey(t *testing.T) {
+	session := sampleSessionWithClip()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			return "https://r2.example/" + key, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	rec := readGet(s, "/api/v1/sessions/"+session.ID)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"clip"`)
+	assert.NotContains(t, rec.Body.String(), `"fingerprint"`)
+}
+
+func TestGetSessionFingerprintPresignFailure(t *testing.T) {
+	session := sampleSessionWithFingerprint()
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return session, nil
+		},
+	}
+	fingerprintKey := blob.Key(session.ID, shaFingerprint, "film.shazamcatalog")
+	objectStore := &mocks.ObjectStoreMock{
+		PresignGetFunc: func(_ context.Context, key string) (string, error) {
+			if key == fingerprintKey {
 				return "", errors.New("presign boom")
 			}
 			return "https://r2.example/" + key, nil

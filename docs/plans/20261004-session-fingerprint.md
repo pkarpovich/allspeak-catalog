@@ -158,17 +158,19 @@ the clip is.
 - Modify: `internal/api/read.go`
 - Modify: `internal/api/read_test.go`
 
-- [ ] add `Fingerprint fileWithURL` with tag `json:"fingerprint,omitzero"` to `sessionDetail`,
+- [x] add `Fingerprint fileWithURL` with tag `json:"fingerprint,omitzero"` to `sessionDetail`,
       after `Clip`
-- [ ] presign a non-zero fingerprint in `sessionDetail()` through a `presignFingerprint` method on
+- [x] presign a non-zero fingerprint in `sessionDetail()` through a `presignFingerprint` method on
       `Server`, mirroring `presignClip`. Factor out a shared method only if it keeps every function
       within the Go signature rules.
-- [ ] write tests:
+      (done as a shared `presignOptionalFile(ctx, sessionID, f)` method that replaced `presignClip`
+      and serves both the clip and the fingerprint; ctx + 2 params, within the rules)
+- [x] write tests:
   - detail with a fingerprint returns filename, size, sha256 and the mock-presigned `url`;
   - detail without one has no `"fingerprint"` substring;
   - presign failure on the fingerprint returns `502`;
   - catalog `totalSize` includes the fingerprint.
-- [ ] run `mise run test` and `mise run lint` - must pass before task 3
+- [x] run `mise run test` and `mise run lint` - must pass before task 3
 
 ### Task 3: Finalize accepts and verifies the fingerprint
 
