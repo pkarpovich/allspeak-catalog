@@ -200,11 +200,11 @@ the clip is.
 
 ### Task 5: [Final] Update documentation
 
-- [ ] update `README.md`:
+- [x] update `README.md`:
   - manifest shape: add the `fingerprint` example;
   - validation rules: the fingerprint is optional and validated like the clip;
   - the publish walkthrough: adding a fingerprint in a new revision.
-- [ ] move this plan to `docs/plans/completed/`
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
