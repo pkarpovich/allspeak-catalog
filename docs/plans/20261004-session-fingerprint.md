@@ -177,15 +177,15 @@ the clip is.
 **Files:**
 - Modify: `internal/api/finalize_test.go`
 
-- [ ] write tests:
+- [x] write tests:
   - `POST /api/v1/sessions` with a fingerprint whose object exists stores it with its sanitized
     filename;
   - a missing fingerprint object returns `409`, with its sha256 in `missing`;
   - an invalid fingerprint returns `400`, with a message starting `manifest.fingerprint.`;
   - `PUT /api/v1/sessions/{id}` adding a fingerprint to a session that already has tracks, a
     subtitle and a clip returns `200`, and the stored manifest keeps the other files unchanged.
-- [ ] fix production code only if one of these does not hold
-- [ ] run `mise run test` and `mise run lint` - must pass before task 4
+- [x] fix production code only if one of these does not hold (all held, no production change)
+- [x] run `mise run test` and `mise run lint` - must pass before task 4
 
 ### Task 4: Verify acceptance criteria
 

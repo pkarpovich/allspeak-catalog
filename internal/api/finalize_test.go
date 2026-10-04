@@ -36,6 +36,10 @@ func sampleManifestWithClip() manifest.Manifest {
 	return sampleSessionWithClip().Manifest
 }
 
+func sampleManifestWithFingerprint() manifest.Manifest {
+	return sampleSessionWithFingerprint().Manifest
+}
+
 func finalizeBody(t *testing.T, req finalizeRequest) string {
 	t.Helper()
 	b, err := json.Marshal(req)
@@ -677,4 +681,140 @@ func TestUpdateSessionDropsClip(t *testing.T) {
 	assert.Equal(t, sampleManifest(), updated.Manifest)
 	assert.Equal(t, manifest.FileRef{}, updated.Manifest.Clip)
 	assert.NotContains(t, existsKeys, blob.Key(validSessionID, shaClip, "film.first-line.mp4"))
+}
+
+func TestCreateSessionWithFingerprint(t *testing.T) {
+	var created store.Session
+	var existsKeys []string
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			existsKeys = append(existsKeys, key)
+			return true, nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		CreateFunc: func(_ context.Context, session store.Session) error {
+			created = session
+			return nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	m := sampleManifestWithFingerprint()
+	m.Fingerprint.Filename = "catalogs/film ru!.shazamcatalog"
+	body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: m})
+	rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	resp := decodeFinalizeResponse(t, rec)
+	assert.Equal(t, validSessionID, resp.ID)
+	assert.Equal(t, 1, resp.Revision)
+
+	want := sampleManifestWithFingerprint()
+	want.Fingerprint.Filename = "film ru_.shazamcatalog"
+	assert.Equal(t, want, created.Manifest)
+
+	assert.Equal(t, []string{
+		blob.Key(validSessionID, shaTrackA, "film.m4a"),
+		blob.Key(validSessionID, shaTrackB, "film_alt.m4a"),
+		blob.Key(validSessionID, shaSubtitle, "film.srt"),
+		blob.Key(validSessionID, shaClip, "film.first-line.mp4"),
+		blob.Key(validSessionID, shaFingerprint, "film ru_.shazamcatalog"),
+	}, existsKeys)
+}
+
+func TestCreateSessionMissingFingerprintObject(t *testing.T) {
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			return !strings.Contains(key, shaFingerprint), nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		CreateFunc: func(_ context.Context, _ store.Session) error { return nil },
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: sampleManifestWithFingerprint()})
+	rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+	require.Equal(t, http.StatusConflict, rec.Code)
+
+	var resp struct {
+		Missing []string `json:"missing"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, []string{shaFingerprint}, resp.Missing)
+	assert.Empty(t, sessionStore.CreateCalls())
+}
+
+func TestCreateSessionInvalidFingerprint(t *testing.T) {
+	tests := []struct {
+		name       string
+		mutate     func(m *manifest.Manifest)
+		wantPrefix string
+	}{
+		{
+			name:       "bad sha256",
+			mutate:     func(m *manifest.Manifest) { m.Fingerprint.SHA256 = "abc" },
+			wantPrefix: "manifest.fingerprint.sha256",
+		},
+		{
+			name:       "zero size",
+			mutate:     func(m *manifest.Manifest) { m.Fingerprint.Size = 0 },
+			wantPrefix: "manifest.fingerprint.size",
+		},
+		{
+			name:       "empty filename",
+			mutate:     func(m *manifest.Manifest) { m.Fingerprint.Filename = "/" },
+			wantPrefix: "manifest.fingerprint.filename",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objectStore := existsAll()
+			s := serverWith(&mocks.SessionStoreMock{}, objectStore)
+
+			m := sampleManifestWithFingerprint()
+			tt.mutate(&m)
+			body := finalizeBody(t, finalizeRequest{SessionID: validSessionID, Title: "Some Film", Manifest: m})
+			rec := adminReq(s, http.MethodPost, "/api/v1/sessions", body)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.True(t, strings.HasPrefix(errorMessage(t, rec), tt.wantPrefix), "got %q", errorMessage(t, rec))
+			assert.Empty(t, objectStore.ExistsCalls(), "must reject invalid fingerprint before touching blob")
+		})
+	}
+}
+
+func TestUpdateSessionAddsFingerprint(t *testing.T) {
+	var updated store.Session
+	var existsKeys []string
+	objectStore := &mocks.ObjectStoreMock{
+		ExistsFunc: func(_ context.Context, key string) (bool, error) {
+			existsKeys = append(existsKeys, key)
+			return true, nil
+		},
+	}
+	sessionStore := &mocks.SessionStoreMock{
+		GetFunc: func(_ context.Context, _ string) (store.Session, error) {
+			return sampleSessionWithClip(), nil
+		},
+		UpdateManifestFunc: func(_ context.Context, session store.Session) (int, error) {
+			updated = session
+			return 5, nil
+		},
+	}
+	s := serverWith(sessionStore, objectStore)
+
+	body := finalizeBody(t, finalizeRequest{Title: "Better Dub", Manifest: sampleManifestWithFingerprint()})
+	rec := adminReq(s, http.MethodPut, "/api/v1/sessions/"+validSessionID, body)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	resp := decodeFinalizeResponse(t, rec)
+	assert.Equal(t, 5, resp.Revision)
+	assert.Equal(t, sampleManifestWithFingerprint(), updated.Manifest)
+
+	previous := sampleManifestWithClip()
+	assert.Equal(t, previous.Tracks, updated.Manifest.Tracks)
+	assert.Equal(t, previous.Subtitle, updated.Manifest.Subtitle)
+	assert.Equal(t, previous.Clip, updated.Manifest.Clip)
+	assert.Contains(t, existsKeys, blob.Key(validSessionID, shaFingerprint, "film.shazamcatalog"))
 }
