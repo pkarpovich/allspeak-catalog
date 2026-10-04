@@ -350,6 +350,16 @@ func TestManifestFilesWithClip(t *testing.T) {
 	assert.Equal(t, clip(), files[2])
 }
 
+func TestManifestFilesWithFingerprintWithoutClip(t *testing.T) {
+	m := validManifest()
+	m.Fingerprint = fingerprint()
+	files := m.Files()
+	require.Len(t, files, 3)
+	assert.Equal(t, shaA, files[0].SHA256)
+	assert.Equal(t, shaC, files[1].SHA256)
+	assert.Equal(t, fingerprint(), files[2])
+}
+
 func TestManifestFilesWithClipAndFingerprint(t *testing.T) {
 	m := validManifestWithClipAndFingerprint()
 	files := m.Files()

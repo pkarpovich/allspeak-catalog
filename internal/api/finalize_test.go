@@ -811,10 +811,5 @@ func TestUpdateSessionAddsFingerprint(t *testing.T) {
 	resp := decodeFinalizeResponse(t, rec)
 	assert.Equal(t, 5, resp.Revision)
 	assert.Equal(t, sampleManifestWithFingerprint(), updated.Manifest)
-
-	previous := sampleManifestWithClip()
-	assert.Equal(t, previous.Tracks, updated.Manifest.Tracks)
-	assert.Equal(t, previous.Subtitle, updated.Manifest.Subtitle)
-	assert.Equal(t, previous.Clip, updated.Manifest.Clip)
 	assert.Contains(t, existsKeys, blob.Key(validSessionID, shaFingerprint, "film.shazamcatalog"))
 }
