@@ -30,9 +30,10 @@ type Track struct {
 
 // Manifest is the wire and storage shape of a session's files.
 type Manifest struct {
-	Tracks   []Track `json:"tracks"`
-	Subtitle FileRef `json:"subtitle"`
-	Clip     FileRef `json:"clip,omitzero"`
+	Tracks      []Track `json:"tracks"`
+	Subtitle    FileRef `json:"subtitle"`
+	Clip        FileRef `json:"clip,omitzero"`
+	Fingerprint FileRef `json:"fingerprint,omitzero"`
 }
 
 // Validate enforces every finalize validation rule, returning an error that
@@ -65,6 +66,11 @@ func (m Manifest) Validate() error {
 	if m.Clip != (FileRef{}) {
 		if err := m.Clip.Validate(); err != nil {
 			return fmt.Errorf("clip.%w", err)
+		}
+	}
+	if m.Fingerprint != (FileRef{}) {
+		if err := m.Fingerprint.Validate(); err != nil {
+			return fmt.Errorf("fingerprint.%w", err)
 		}
 	}
 	return nil
@@ -110,19 +116,30 @@ func (m *Manifest) Sanitize() error {
 		}
 		m.Clip.Filename = clean
 	}
+	if m.Fingerprint != (FileRef{}) {
+		clean, err := SanitizeFilename(m.Fingerprint.Filename)
+		if err != nil {
+			return fmt.Errorf("fingerprint.filename: %w", err)
+		}
+		m.Fingerprint.Filename = clean
+	}
 	return nil
 }
 
 // Files returns every file in the manifest (tracks, subtitle, then the
-// optional clip) as a flat list for iteration by api and blob callers.
+// optional clip and fingerprint) as a flat list for iteration by api and blob
+// callers.
 func (m Manifest) Files() []FileRef {
-	files := make([]FileRef, 0, len(m.Tracks)+2)
+	files := make([]FileRef, 0, len(m.Tracks)+3)
 	for _, t := range m.Tracks {
 		files = append(files, t.FileRef)
 	}
 	files = append(files, m.Subtitle)
 	if m.Clip != (FileRef{}) {
 		files = append(files, m.Clip)
+	}
+	if m.Fingerprint != (FileRef{}) {
+		files = append(files, m.Fingerprint)
 	}
 	return files
 }

@@ -1,14 +1,15 @@
 # allspeak-catalog
 
-A small Go service that distributes prepared Allspeak sessions (film dub audio tracks, subtitles, and
-an optional first-line clip) online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
+A small Go service that distributes prepared Allspeak sessions (film dub audio tracks, subtitles, an
+optional first-line clip, and an optional fingerprint) online instead of over AirDrop. It exposes an authenticated JSON API over a catalog of sessions and
 keeps file payloads in Cloudflare R2, transferred exclusively through presigned URLs - the service
 stays on the JSON control plane and never proxies file bytes. The Mac uploads a session once; the
 iOS app imports it from anywhere later.
 
 A session in the catalog is a `title` plus a monotonically increasing `revision` plus a manifest of
-files: one or more audio tracks, exactly one subtitle, and an optional short clip cut around the
-film's first spoken line. Content is addressed by sha256 in R2, so publishing a new revision uploads
+files: one or more audio tracks, exactly one subtitle, an optional short clip cut around the film's
+first spoken line, and an optional fingerprint (a ShazamKit `.shazamcatalog` built from the published
+track, used to resync in the cinema). Content is addressed by sha256 in R2, so publishing a new revision uploads
 only new files and interrupted uploads resume by re-requesting upload URLs.
 
 ## API
@@ -21,7 +22,7 @@ URLs expire one hour after they are issued.
 |---|---|---|
 | `GET /health` | none | `200 {"status":"ok"}` (also at `/api/health` - the public URL behind the Traefik `/api` prefix) |
 | `GET /api/v1/catalog` | read | List sessions as `{"sessions":[{id, title, revision, updatedAt, totalSize, trackLabels[]}]}` |
-| `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET), including `clip` when the session has one, and the response carries `urlsExpireAt`; `404` if unknown |
+| `GET /api/v1/sessions/{id}` | read | Full manifest; every file entry additionally carries `url` (presigned GET), including `clip` and `fingerprint` when the session has them, and the response carries `urlsExpireAt`; `404` if unknown |
 | `POST /api/v1/uploads` | admin | Body `{"sessionId": "<uuid or null>", "files":[{"sha256","size","filename"}]}` (`files` must be non-empty); for a new session the server allocates and returns `sessionId`. Response `{"sessionId","files":[...]}`, per file `{"sha256","filename","exists":true}` or `{"sha256","filename","uploadUrl"}` (presigned PUT). Never touches the catalog table |
 | `POST /api/v1/sessions` | admin | Finalize a new session: `{"sessionId","title","manifest"}`; verifies every referenced object exists in R2, inserts with `revision=1`, returns `{"id","revision"}`. `409` if the id already exists |
 | `PUT /api/v1/sessions/{id}` | admin | Finalize a new revision: body same as above minus `sessionId`; `404` if unknown id; verifies objects; increments `revision`; returns `{"id","revision"}` |
@@ -42,7 +43,8 @@ The `manifest` in both finalize endpoints, and the storage/wire format for a ses
   "tracks": [{"label": "ft.sidon", "sortOrder": 0, "isDefault": true,
               "filename": "film.m4a", "size": 73400320, "sha256": "<64 hex>"}],
   "subtitle": {"filename": "film.srt", "size": 152000, "sha256": "<64 hex>"},
-  "clip": {"filename": "film.first-line.mp4", "size": 6200000, "sha256": "<64 hex>"}
+  "clip": {"filename": "film.first-line.mp4", "size": 6200000, "sha256": "<64 hex>"},
+  "fingerprint": {"filename": "film.shazamcatalog", "size": 980000, "sha256": "<64 hex>"}
 }
 ```
 
@@ -50,7 +52,9 @@ Validation rules: `title` non-empty and at most 200 chars after trimming; at lea
 track `label` non-empty; exactly one track with `isDefault=true`; subtitle required; every file
 `sha256` exactly 64 lowercase hex chars, `size` > 0, `filename` non-empty after sanitization. The
 `clip` is optional - omit the key for a session without one; when present it is validated like the
-subtitle and counts toward `totalSize`. Filenames are sanitized once at the API boundary (last path
+subtitle and counts toward `totalSize`. The `fingerprint` is optional the same way - omit the key
+for a session without one; when present it is validated like the clip, presigned in the detail
+response, verified at finalize, and counted toward `totalSize`. Filenames are sanitized once at the API boundary (last path
 component, keep `[A-Za-z0-9._ -]`, replace the rest with `_`), so stored manifests and R2 keys always
 use the sanitized names.
 
@@ -206,3 +210,19 @@ export READ="Authorization: Bearer <read-token>"
    the manifest with the extra `clip` entry. Dropping it is a `PUT` without the key.
 
    Expect `{"id":"<sessionId>","revision":2}`, and confirm the catalog now shows `revision:2`.
+
+8. Add a fingerprint as revision 3. Compute its size and sha256, negotiate uploads with the existing
+   `sessionId` (only the fingerprint returns an `uploadUrl`), PUT its bytes, then finalize with the
+   unchanged files plus the `fingerprint` entry:
+
+   ```sh
+   curl -s -X PUT -H "$ADMIN" -H 'Content-Type: application/json' "$API/sessions/<sessionId>" -d '{
+     "title": "My Film",
+     "manifest": { "tracks": [ ... ], "subtitle": { ... }, "clip": { ... },
+                   "fingerprint": {"filename":"film.shazamcatalog","size":980000,"sha256":"<fp>"} }
+   }'
+   ```
+
+   Expect `{"id":"<sessionId>","revision":3}`. The revision bump tells the app to fetch the detail
+   again, which now carries the fingerprint with its presigned `url`. Dropping it is a `PUT` without
+   the key.

@@ -60,6 +60,7 @@ type sessionDetail struct {
 	Tracks       []trackWithURL `json:"tracks"`
 	Subtitle     fileWithURL    `json:"subtitle"`
 	Clip         fileWithURL    `json:"clip,omitzero"`
+	Fingerprint  fileWithURL    `json:"fingerprint,omitzero"`
 	URLsExpireAt time.Time      `json:"urlsExpireAt"`
 }
 
@@ -116,7 +117,11 @@ func (s *Server) sessionDetail(ctx context.Context, session store.Session) (sess
 	if err != nil {
 		return sessionDetail{}, err
 	}
-	clip, err := s.presignClip(ctx, session)
+	clip, err := s.presignOptionalFile(ctx, session.ID, session.Manifest.Clip)
+	if err != nil {
+		return sessionDetail{}, err
+	}
+	fingerprint, err := s.presignOptionalFile(ctx, session.ID, session.Manifest.Fingerprint)
 	if err != nil {
 		return sessionDetail{}, err
 	}
@@ -129,19 +134,20 @@ func (s *Server) sessionDetail(ctx context.Context, session store.Session) (sess
 		Tracks:       tracks,
 		Subtitle:     fileWithURL{FileRef: session.Manifest.Subtitle, URL: subtitleURL},
 		Clip:         clip,
+		Fingerprint:  fingerprint,
 		URLsExpireAt: time.Now().UTC().Add(blob.PresignExpiry),
 	}, nil
 }
 
-func (s *Server) presignClip(ctx context.Context, session store.Session) (fileWithURL, error) {
-	if session.Manifest.Clip == (manifest.FileRef{}) {
+func (s *Server) presignOptionalFile(ctx context.Context, sessionID string, f manifest.FileRef) (fileWithURL, error) {
+	if f == (manifest.FileRef{}) {
 		return fileWithURL{}, nil
 	}
-	url, err := s.presignFile(ctx, session.ID, session.Manifest.Clip)
+	url, err := s.presignFile(ctx, sessionID, f)
 	if err != nil {
 		return fileWithURL{}, err
 	}
-	return fileWithURL{FileRef: session.Manifest.Clip, URL: url}, nil
+	return fileWithURL{FileRef: f, URL: url}, nil
 }
 
 func (s *Server) presignFile(ctx context.Context, sessionID string, f manifest.FileRef) (string, error) {

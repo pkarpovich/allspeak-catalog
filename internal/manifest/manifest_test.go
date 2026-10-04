@@ -14,6 +14,7 @@ const (
 	shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	shaC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	shaD = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	shaE = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 )
 
 func track(label string, isDefault bool, sha string) Track {
@@ -33,6 +34,10 @@ func clip() FileRef {
 	return FileRef{Filename: "film.first-line.mp4", Size: 6200000, SHA256: shaD}
 }
 
+func fingerprint() FileRef {
+	return FileRef{Filename: "film.shazamcatalog", Size: 980000, SHA256: shaE}
+}
+
 func validManifest() Manifest {
 	return Manifest{
 		Tracks:   []Track{track("ft.sidon", true, shaA)},
@@ -43,6 +48,12 @@ func validManifest() Manifest {
 func validManifestWithClip() Manifest {
 	m := validManifest()
 	m.Clip = clip()
+	return m
+}
+
+func validManifestWithClipAndFingerprint() Manifest {
+	m := validManifestWithClip()
+	m.Fingerprint = fingerprint()
 	return m
 }
 
@@ -154,6 +165,41 @@ func TestManifestValidate(t *testing.T) {
 			},
 			wantErr: "clip.filename",
 		},
+		{
+			name:   "valid with fingerprint",
+			mutate: func(m *Manifest) { m.Fingerprint = fingerprint() },
+		},
+		{
+			name: "valid with clip and fingerprint",
+			mutate: func(m *Manifest) {
+				m.Clip = clip()
+				m.Fingerprint = fingerprint()
+			},
+		},
+		{
+			name: "fingerprint bad sha256",
+			mutate: func(m *Manifest) {
+				m.Fingerprint = fingerprint()
+				m.Fingerprint.SHA256 = "nothex"
+			},
+			wantErr: "fingerprint.sha256",
+		},
+		{
+			name: "fingerprint size zero",
+			mutate: func(m *Manifest) {
+				m.Fingerprint = fingerprint()
+				m.Fingerprint.Size = 0
+			},
+			wantErr: "fingerprint.size",
+		},
+		{
+			name: "fingerprint filename empty",
+			mutate: func(m *Manifest) {
+				m.Fingerprint = fingerprint()
+				m.Fingerprint.Filename = ""
+			},
+			wantErr: "fingerprint.filename",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -217,20 +263,23 @@ func TestManifestSanitize(t *testing.T) {
 			{Label: "ft.sidon", IsDefault: true, FileRef: FileRef{Filename: "sub/dir/a:b*.m4a", Size: 1, SHA256: shaA}},
 			{Label: "alt", FileRef: FileRef{Filename: "/Movies/alt?.m4a", Size: 1, SHA256: shaB}},
 		},
-		Subtitle: FileRef{Filename: "weird|name.srt", Size: 1, SHA256: shaC},
-		Clip:     FileRef{Filename: "/clips/first:line*.mp4", Size: 1, SHA256: shaD},
+		Subtitle:    FileRef{Filename: "weird|name.srt", Size: 1, SHA256: shaC},
+		Clip:        FileRef{Filename: "/clips/first:line*.mp4", Size: 1, SHA256: shaD},
+		Fingerprint: FileRef{Filename: "/catalogs/film?.shazamcatalog", Size: 1, SHA256: shaE},
 	}
 	require.NoError(t, m.Sanitize())
 	assert.Equal(t, "a_b_.m4a", m.Tracks[0].Filename)
 	assert.Equal(t, "alt_.m4a", m.Tracks[1].Filename)
 	assert.Equal(t, "weird_name.srt", m.Subtitle.Filename)
 	assert.Equal(t, "first_line_.mp4", m.Clip.Filename)
+	assert.Equal(t, "film_.shazamcatalog", m.Fingerprint.Filename)
 }
 
 func TestManifestSanitizeWithoutClip(t *testing.T) {
 	m := validManifest()
 	require.NoError(t, m.Sanitize())
 	assert.Equal(t, FileRef{}, m.Clip)
+	assert.Equal(t, FileRef{}, m.Fingerprint)
 }
 
 func TestManifestSanitizeErrors(t *testing.T) {
@@ -256,6 +305,14 @@ func TestManifestSanitizeErrors(t *testing.T) {
 				m.Clip.Filename = "."
 			},
 			wantErr: "clip.filename",
+		},
+		{
+			name: "fingerprint filename empty after sanitize",
+			mutate: func(m *Manifest) {
+				m.Fingerprint = fingerprint()
+				m.Fingerprint.Filename = "."
+			},
+			wantErr: "fingerprint.filename",
 		},
 	}
 	for _, tt := range tests {
@@ -293,6 +350,26 @@ func TestManifestFilesWithClip(t *testing.T) {
 	assert.Equal(t, clip(), files[2])
 }
 
+func TestManifestFilesWithFingerprintWithoutClip(t *testing.T) {
+	m := validManifest()
+	m.Fingerprint = fingerprint()
+	files := m.Files()
+	require.Len(t, files, 3)
+	assert.Equal(t, shaA, files[0].SHA256)
+	assert.Equal(t, shaC, files[1].SHA256)
+	assert.Equal(t, fingerprint(), files[2])
+}
+
+func TestManifestFilesWithClipAndFingerprint(t *testing.T) {
+	m := validManifestWithClipAndFingerprint()
+	files := m.Files()
+	require.Len(t, files, 4)
+	assert.Equal(t, shaA, files[0].SHA256)
+	assert.Equal(t, shaC, files[1].SHA256)
+	assert.Equal(t, clip(), files[2])
+	assert.Equal(t, fingerprint(), files[3])
+}
+
 func TestManifestJSONRoundTrip(t *testing.T) {
 	in := validManifest()
 	raw, err := json.Marshal(in)
@@ -306,6 +383,7 @@ func TestManifestJSONRoundTrip(t *testing.T) {
 	}`, string(raw))
 
 	assert.NotContains(t, string(raw), `"clip"`)
+	assert.NotContains(t, string(raw), `"fingerprint"`)
 
 	var out Manifest
 	require.NoError(t, json.Unmarshal(raw, &out))
@@ -323,6 +401,27 @@ func TestManifestJSONRoundTripWithClip(t *testing.T) {
 		            "sha256":"`+shaA+`"}],
 		"subtitle": {"filename":"film.srt","size":152000,"sha256":"`+shaC+`"},
 		"clip": {"filename":"film.first-line.mp4","size":6200000,"sha256":"`+shaD+`"}
+	}`, string(raw))
+
+	assert.NotContains(t, string(raw), `"fingerprint"`)
+
+	var out Manifest
+	require.NoError(t, json.Unmarshal(raw, &out))
+	assert.Equal(t, in, out)
+}
+
+func TestManifestJSONRoundTripWithFingerprint(t *testing.T) {
+	in := validManifestWithClipAndFingerprint()
+	raw, err := json.Marshal(in)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, `{
+		"tracks": [{"label":"ft.sidon","sortOrder":0,"isDefault":true,
+		            "filename":"film.m4a","size":73400320,
+		            "sha256":"`+shaA+`"}],
+		"subtitle": {"filename":"film.srt","size":152000,"sha256":"`+shaC+`"},
+		"clip": {"filename":"film.first-line.mp4","size":6200000,"sha256":"`+shaD+`"},
+		"fingerprint": {"filename":"film.shazamcatalog","size":980000,"sha256":"`+shaE+`"}
 	}`, string(raw))
 
 	var out Manifest

@@ -136,21 +136,21 @@ the clip is.
 - Modify: `internal/manifest/manifest.go`
 - Modify: `internal/manifest/manifest_test.go`
 
-- [ ] add `Fingerprint FileRef` with tag `json:"fingerprint,omitzero"` to `Manifest`, after `Clip`
-- [ ] add the non-zero branches:
+- [x] add `Fingerprint FileRef` with tag `json:"fingerprint,omitzero"` to `Manifest`, after `Clip`
+- [x] add the non-zero branches:
   - `Validate()`: wrap errors as `fingerprint.`;
   - `Sanitize()`: wrap errors as `fingerprint.filename: ...`;
   - `Files()`: append it after the clip and grow the capacity.
-- [ ] add a `fingerprint()` test helper next to `clip()`, plus a manifest builder with both clip
+- [x] add a `fingerprint()` test helper next to `clip()`, plus a manifest builder with both clip
       and fingerprint
-- [ ] extend the validate, round-trip, sanitize and `Files()` tests the way the clip cases do:
+- [x] extend the validate, round-trip, sanitize and `Files()` tests the way the clip cases do:
   - valid;
   - bad sha256 → `fingerprint.sha256`;
   - size 0 → `fingerprint.size`;
   - empty filename → `fingerprint.filename`;
   - a manifest without a fingerprint marshals with no `"fingerprint"` substring;
   - `Files()` order is tracks, subtitle, clip, fingerprint.
-- [ ] run `mise run test` and `mise run lint` - must pass before task 2
+- [x] run `mise run test` and `mise run lint` - must pass before task 2
 
 ### Task 2: Fingerprint in the session detail response
 
@@ -158,51 +158,53 @@ the clip is.
 - Modify: `internal/api/read.go`
 - Modify: `internal/api/read_test.go`
 
-- [ ] add `Fingerprint fileWithURL` with tag `json:"fingerprint,omitzero"` to `sessionDetail`,
+- [x] add `Fingerprint fileWithURL` with tag `json:"fingerprint,omitzero"` to `sessionDetail`,
       after `Clip`
-- [ ] presign a non-zero fingerprint in `sessionDetail()` through a `presignFingerprint` method on
+- [x] presign a non-zero fingerprint in `sessionDetail()` through a `presignFingerprint` method on
       `Server`, mirroring `presignClip`. Factor out a shared method only if it keeps every function
       within the Go signature rules.
-- [ ] write tests:
+      (done as a shared `presignOptionalFile(ctx, sessionID, f)` method that replaced `presignClip`
+      and serves both the clip and the fingerprint; ctx + 2 params, within the rules)
+- [x] write tests:
   - detail with a fingerprint returns filename, size, sha256 and the mock-presigned `url`;
   - detail without one has no `"fingerprint"` substring;
   - presign failure on the fingerprint returns `502`;
   - catalog `totalSize` includes the fingerprint.
-- [ ] run `mise run test` and `mise run lint` - must pass before task 3
+- [x] run `mise run test` and `mise run lint` - must pass before task 3
 
 ### Task 3: Finalize accepts and verifies the fingerprint
 
 **Files:**
 - Modify: `internal/api/finalize_test.go`
 
-- [ ] write tests:
+- [x] write tests:
   - `POST /api/v1/sessions` with a fingerprint whose object exists stores it with its sanitized
     filename;
   - a missing fingerprint object returns `409`, with its sha256 in `missing`;
   - an invalid fingerprint returns `400`, with a message starting `manifest.fingerprint.`;
   - `PUT /api/v1/sessions/{id}` adding a fingerprint to a session that already has tracks, a
     subtitle and a clip returns `200`, and the stored manifest keeps the other files unchanged.
-- [ ] fix production code only if one of these does not hold
-- [ ] run `mise run test` and `mise run lint` - must pass before task 4
+- [x] fix production code only if one of these does not hold (all held, no production change)
+- [x] run `mise run test` and `mise run lint` - must pass before task 4
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] verify every point:
+- [x] verify every point:
   - optional fingerprint in the manifest;
   - presigned in the detail response;
   - counted in `totalSize`;
   - verified at finalize;
   - key absent when there is none;
   - sessions with a clip but no fingerprint are unchanged.
-- [ ] run the full test suite and lint
+- [x] run the full test suite and lint
 
 ### Task 5: [Final] Update documentation
 
-- [ ] update `README.md`:
+- [x] update `README.md`:
   - manifest shape: add the `fingerprint` example;
   - validation rules: the fingerprint is optional and validated like the clip;
   - the publish walkthrough: adding a fingerprint in a new revision.
-- [ ] move this plan to `docs/plans/completed/`
+- [x] move this plan to `docs/plans/completed/`
 
 ## Post-Completion
 
