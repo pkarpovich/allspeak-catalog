@@ -27,6 +27,12 @@ URLs expire one hour after they are issued.
 | `POST /api/v1/sessions` | admin | Finalize a new session: `{"sessionId","title","manifest"}`; verifies every referenced object exists in R2, inserts with `revision=1`, returns `{"id","revision"}`. `409` if the id already exists |
 | `PUT /api/v1/sessions/{id}` | admin | Finalize a new revision: body same as above minus `sessionId`; `404` if unknown id; verifies objects; increments `revision`; returns `{"id","revision"}` |
 | `DELETE /api/v1/sessions/{id}` | admin | Remove the catalog row (R2 objects left in place); `204`; `404` if unknown id |
+| `POST /api/v1/sessions/{id}/diagnostics?name=<file>` | read | Store the body (a JSONL diagnostics log from the phone) at `diagnostics/<id>/<file>` in R2, replacing an object of the same name, so a retry is idempotent. Response `201 {"key","size"}`; `404` if unknown session id |
+| `GET /api/v1/sessions/{id}/diagnostics` | read | List that session's logs as `{"files":[{"name","size","uploadedAt","url"}],"urlsExpireAt"}`, newest first, `url` a presigned GET and `uploadedAt` the R2 `LastModified`; `404` if unknown session id |
+| `POST /api/v1/diagnostics/crashes?name=<file>` | read | Store the body (a MetricKit diagnostic report from the phone: crash, hang, cpu, disk, launch or memory) at `diagnostics/crashes/<file>`. Response `201 {"key","size"}` |
+| `GET /api/v1/diagnostics/crashes` | read | List the stored reports, same shape as the session logs |
+
+The diagnostics routes are the only writes the read token can make, and only under `diagnostics/`. The bytes pass through the server, unlike session files: the phone uploads with a single background request and the server caps a body at 8 MB (`413` above it). `name` must match `[A-Za-z0-9._-]{1,128}` and not start with a dot (`400` otherwise); an empty body is `400`. The session id is matched case-insensitively.
 
 Error semantics: `401` missing/unknown token; `403` read token on an admin endpoint; `404` unknown
 session id; `409` finalize with missing objects (body `{"missing":["<sha256>", ...]}`) or duplicate
@@ -226,3 +232,12 @@ export READ="Authorization: Bearer <read-token>"
    Expect `{"id":"<sessionId>","revision":3}`. The revision bump tells the app to fetch the detail
    again, which now carries the fingerprint with its presigned `url`. Dropping it is a `PUT` without
    the key.
+
+9. Upload and list a diagnostics log with the read token (the session id must exist):
+
+   ```sh
+   curl -s -X POST -H "$READ" --data-binary @x.jsonl "$API/sessions/<sessionId>/diagnostics?name=x.jsonl"
+   curl -s -H "$READ" "$API/sessions/<sessionId>/diagnostics"
+   ```
+
+   Expect `{"key":"diagnostics/<sessionId>/x.jsonl","size":<bytes>}`, then a `files` list with `x.jsonl` and a presigned `url`.

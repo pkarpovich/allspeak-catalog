@@ -5,6 +5,7 @@ package mocks
 
 import (
 	"context"
+	"github.com/pkarpovich/allspeak-catalog/internal/blob"
 	"sync"
 )
 
@@ -17,11 +18,17 @@ import (
 //			ExistsFunc: func(ctx context.Context, key string) (bool, error) {
 //				panic("mock out the Exists method")
 //			},
+//			ListFunc: func(ctx context.Context, prefix string) ([]blob.Object, error) {
+//				panic("mock out the List method")
+//			},
 //			PresignGetFunc: func(ctx context.Context, key string) (string, error) {
 //				panic("mock out the PresignGet method")
 //			},
 //			PresignPutFunc: func(ctx context.Context, key string) (string, error) {
 //				panic("mock out the PresignPut method")
+//			},
+//			PutFunc: func(ctx context.Context, key string, contentType string, body []byte) error {
+//				panic("mock out the Put method")
 //			},
 //		}
 //
@@ -33,11 +40,17 @@ type ObjectStoreMock struct {
 	// ExistsFunc mocks the Exists method.
 	ExistsFunc func(ctx context.Context, key string) (bool, error)
 
+	// ListFunc mocks the List method.
+	ListFunc func(ctx context.Context, prefix string) ([]blob.Object, error)
+
 	// PresignGetFunc mocks the PresignGet method.
 	PresignGetFunc func(ctx context.Context, key string) (string, error)
 
 	// PresignPutFunc mocks the PresignPut method.
 	PresignPutFunc func(ctx context.Context, key string) (string, error)
+
+	// PutFunc mocks the Put method.
+	PutFunc func(ctx context.Context, key string, contentType string, body []byte) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -47,6 +60,13 @@ type ObjectStoreMock struct {
 			Ctx context.Context
 			// Key is the key argument value.
 			Key string
+		}
+		// List holds details about calls to the List method.
+		List []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Prefix is the prefix argument value.
+			Prefix string
 		}
 		// PresignGet holds details about calls to the PresignGet method.
 		PresignGet []struct {
@@ -62,10 +82,23 @@ type ObjectStoreMock struct {
 			// Key is the key argument value.
 			Key string
 		}
+		// Put holds details about calls to the Put method.
+		Put []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key string
+			// ContentType is the contentType argument value.
+			ContentType string
+			// Body is the body argument value.
+			Body []byte
+		}
 	}
 	lockExists     sync.RWMutex
+	lockList       sync.RWMutex
 	lockPresignGet sync.RWMutex
 	lockPresignPut sync.RWMutex
+	lockPut        sync.RWMutex
 }
 
 // Exists calls ExistsFunc.
@@ -101,6 +134,42 @@ func (mock *ObjectStoreMock) ExistsCalls() []struct {
 	mock.lockExists.RLock()
 	calls = mock.calls.Exists
 	mock.lockExists.RUnlock()
+	return calls
+}
+
+// List calls ListFunc.
+func (mock *ObjectStoreMock) List(ctx context.Context, prefix string) ([]blob.Object, error) {
+	if mock.ListFunc == nil {
+		panic("ObjectStoreMock.ListFunc: method is nil but ObjectStore.List was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Prefix string
+	}{
+		Ctx:    ctx,
+		Prefix: prefix,
+	}
+	mock.lockList.Lock()
+	mock.calls.List = append(mock.calls.List, callInfo)
+	mock.lockList.Unlock()
+	return mock.ListFunc(ctx, prefix)
+}
+
+// ListCalls gets all the calls that were made to List.
+// Check the length with:
+//
+//	len(mockedObjectStore.ListCalls())
+func (mock *ObjectStoreMock) ListCalls() []struct {
+	Ctx    context.Context
+	Prefix string
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Prefix string
+	}
+	mock.lockList.RLock()
+	calls = mock.calls.List
+	mock.lockList.RUnlock()
 	return calls
 }
 
@@ -173,5 +242,49 @@ func (mock *ObjectStoreMock) PresignPutCalls() []struct {
 	mock.lockPresignPut.RLock()
 	calls = mock.calls.PresignPut
 	mock.lockPresignPut.RUnlock()
+	return calls
+}
+
+// Put calls PutFunc.
+func (mock *ObjectStoreMock) Put(ctx context.Context, key string, contentType string, body []byte) error {
+	if mock.PutFunc == nil {
+		panic("ObjectStoreMock.PutFunc: method is nil but ObjectStore.Put was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Key         string
+		ContentType string
+		Body        []byte
+	}{
+		Ctx:         ctx,
+		Key:         key,
+		ContentType: contentType,
+		Body:        body,
+	}
+	mock.lockPut.Lock()
+	mock.calls.Put = append(mock.calls.Put, callInfo)
+	mock.lockPut.Unlock()
+	return mock.PutFunc(ctx, key, contentType, body)
+}
+
+// PutCalls gets all the calls that were made to Put.
+// Check the length with:
+//
+//	len(mockedObjectStore.PutCalls())
+func (mock *ObjectStoreMock) PutCalls() []struct {
+	Ctx         context.Context
+	Key         string
+	ContentType string
+	Body        []byte
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Key         string
+		ContentType string
+		Body        []byte
+	}
+	mock.lockPut.RLock()
+	calls = mock.calls.Put
+	mock.lockPut.RUnlock()
 	return calls
 }

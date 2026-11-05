@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pkarpovich/allspeak-catalog/internal/blob"
 	"github.com/pkarpovich/allspeak-catalog/internal/store"
 )
 
@@ -29,6 +30,8 @@ type ObjectStore interface {
 	PresignPut(ctx context.Context, key string) (string, error)
 	PresignGet(ctx context.Context, key string) (string, error)
 	Exists(ctx context.Context, key string) (bool, error)
+	Put(ctx context.Context, key, contentType string, body []byte) error
+	List(ctx context.Context, prefix string) ([]blob.Object, error)
 }
 
 // Config wires the catalog store, R2 blob client, bearer tokens, and logger into a Server.
@@ -80,6 +83,10 @@ func (s *Server) routes() {
 	s.mux.Handle("POST /api/v1/sessions", s.auth(authAdmin, http.HandlerFunc(s.createSession)))
 	s.mux.Handle("PUT /api/v1/sessions/{id}", s.auth(authAdmin, http.HandlerFunc(s.updateSession)))
 	s.mux.Handle("DELETE /api/v1/sessions/{id}", s.auth(authAdmin, http.HandlerFunc(s.deleteSession)))
+	s.mux.Handle("POST /api/v1/sessions/{id}/diagnostics", s.auth(authRead, http.HandlerFunc(s.uploadSessionDiagnostics)))
+	s.mux.Handle("GET /api/v1/sessions/{id}/diagnostics", s.auth(authRead, http.HandlerFunc(s.listSessionDiagnostics)))
+	s.mux.Handle("POST /api/v1/diagnostics/crashes", s.auth(authRead, http.HandlerFunc(s.uploadCrashDiagnostics)))
+	s.mux.Handle("GET /api/v1/diagnostics/crashes", s.auth(authRead, http.HandlerFunc(s.listCrashDiagnostics)))
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {

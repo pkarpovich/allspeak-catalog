@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -113,13 +114,32 @@ func TestPresignPutHasNoChecksum(t *testing.T) {
 	}
 }
 
-type stubHead struct {
-	out *s3.HeadObjectOutput
-	err error
+type stubS3 struct {
+	headOut *s3.HeadObjectOutput
+	headErr error
+	putErr  error
+	put     *s3.PutObjectInput
+	pages   []*s3.ListObjectsV2Output
+	listed  []*s3.ListObjectsV2Input
+	listErr error
 }
 
-func (s stubHead) HeadObject(_ context.Context, _ *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
-	return s.out, s.err
+func (s *stubS3) HeadObject(_ context.Context, _ *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+	return s.headOut, s.headErr
+}
+
+func (s *stubS3) PutObject(_ context.Context, in *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	s.put = in
+	return &s3.PutObjectOutput{}, s.putErr
+}
+
+func (s *stubS3) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	s.listed = append(s.listed, in)
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	page := s.pages[len(s.listed)-1]
+	return page, nil
 }
 
 func responseError(status int) error {
@@ -132,19 +152,19 @@ func responseError(status int) error {
 func TestExists(t *testing.T) {
 	tests := []struct {
 		name    string
-		head    stubHead
+		head    *stubS3
 		want    bool
 		wantErr bool
 	}{
-		{name: "present", head: stubHead{out: &s3.HeadObjectOutput{}}, want: true},
-		{name: "typed not found", head: stubHead{err: &types.NotFound{}}, want: false},
-		{name: "http 404", head: stubHead{err: responseError(http.StatusNotFound)}, want: false},
-		{name: "http 500", head: stubHead{err: responseError(http.StatusInternalServerError)}, wantErr: true},
-		{name: "transport error", head: stubHead{err: errors.New("dial tcp")}, wantErr: true},
+		{name: "present", head: &stubS3{headOut: &s3.HeadObjectOutput{}}, want: true},
+		{name: "typed not found", head: &stubS3{headErr: &types.NotFound{}}, want: false},
+		{name: "http 404", head: &stubS3{headErr: responseError(http.StatusNotFound)}, want: false},
+		{name: "http 500", head: &stubS3{headErr: responseError(http.StatusInternalServerError)}, wantErr: true},
+		{name: "transport error", head: &stubS3{headErr: errors.New("dial tcp")}, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Client{head: tt.head, bucket: testBucket}
+			c := &Client{s3: tt.head, bucket: testBucket}
 			got, err := c.Exists(context.Background(), "sessions/sess1/files/obj")
 			if tt.wantErr {
 				require.Error(t, err)
@@ -155,4 +175,61 @@ func TestExists(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestPut(t *testing.T) {
+	stub := &stubS3{}
+	c := &Client{s3: stub, bucket: testBucket}
+
+	err := c.Put(context.Background(), "diagnostics/sess1/log.jsonl", "application/x-ndjson", []byte("{}\n"))
+
+	require.NoError(t, err)
+	require.NotNil(t, stub.put)
+	assert.Equal(t, testBucket, aws.ToString(stub.put.Bucket))
+	assert.Equal(t, "diagnostics/sess1/log.jsonl", aws.ToString(stub.put.Key))
+	assert.Equal(t, "application/x-ndjson", aws.ToString(stub.put.ContentType))
+	assert.Equal(t, int64(3), aws.ToInt64(stub.put.ContentLength))
+}
+
+func TestPutError(t *testing.T) {
+	c := &Client{s3: &stubS3{putErr: errors.New("boom")}, bucket: testBucket}
+
+	err := c.Put(context.Background(), "diagnostics/sess1/log.jsonl", "application/x-ndjson", []byte("x"))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "diagnostics/sess1/log.jsonl")
+}
+
+func TestListFollowsPages(t *testing.T) {
+	first := time.Date(2026, 11, 4, 19, 0, 0, 0, time.UTC)
+	stub := &stubS3{pages: []*s3.ListObjectsV2Output{
+		{
+			Contents:              []types.Object{{Key: aws.String("diagnostics/s/a.jsonl"), Size: aws.Int64(10), LastModified: aws.Time(first)}},
+			IsTruncated:           aws.Bool(true),
+			NextContinuationToken: aws.String("next"),
+		},
+		{
+			Contents: []types.Object{{Key: aws.String("diagnostics/s/b.jsonl"), Size: aws.Int64(20), LastModified: aws.Time(first.Add(time.Hour))}},
+		},
+	}}
+	c := &Client{s3: stub, bucket: testBucket}
+
+	objects, err := c.List(context.Background(), "diagnostics/s/")
+
+	require.NoError(t, err)
+	assert.Equal(t, []Object{
+		{Key: "diagnostics/s/a.jsonl", Size: 10, LastModified: first},
+		{Key: "diagnostics/s/b.jsonl", Size: 20, LastModified: first.Add(time.Hour)},
+	}, objects)
+	require.Len(t, stub.listed, 2)
+	assert.Equal(t, "diagnostics/s/", aws.ToString(stub.listed[0].Prefix))
+	assert.Equal(t, "next", aws.ToString(stub.listed[1].ContinuationToken))
+}
+
+func TestListError(t *testing.T) {
+	c := &Client{s3: &stubS3{listErr: errors.New("boom")}, bucket: testBucket}
+
+	_, err := c.List(context.Background(), "diagnostics/s/")
+
+	require.Error(t, err)
 }
