@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -27,15 +28,24 @@ type Config struct {
 	Bucket   string
 }
 
-type headAPI interface {
+type objectAPI interface {
 	HeadObject(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	s3.ListObjectsV2APIClient
 }
 
-// Client presigns R2 object transfers and checks object existence. It never
-// moves object bytes itself.
+// Object is one listed R2 object.
+type Object struct {
+	Key          string
+	Size         int64
+	LastModified time.Time
+}
+
+// Client presigns R2 object transfers and checks object existence. Session
+// files never pass through it; only the small diagnostics uploads do (Put).
 type Client struct {
 	presign *s3.PresignClient
-	head    headAPI
+	s3      objectAPI
 	bucket  string
 }
 
@@ -57,7 +67,7 @@ func New(cfg Config) (*Client, error) {
 	})
 	return &Client{
 		presign: s3.NewPresignClient(s3c),
-		head:    s3c,
+		s3:      s3c,
 		bucket:  cfg.Bucket,
 	}, nil
 }
@@ -95,7 +105,7 @@ func (c *Client) PresignGet(ctx context.Context, key string) (string, error) {
 // Exists reports whether key is present in the bucket, mapping a not-found
 // response to (false, nil) and any other failure to an error.
 func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
-	_, err := c.head.HeadObject(ctx, &s3.HeadObjectInput{
+	_, err := c.s3.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
 	})
@@ -111,4 +121,43 @@ func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
 		return false, nil
 	}
 	return false, fmt.Errorf("head object %q: %w", key, err)
+}
+
+// Put stores body under key with the given content type, replacing any object
+// already there.
+func (c *Client) Put(ctx context.Context, key, contentType string, body []byte) error {
+	_, err := c.s3.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(c.bucket),
+		Key:           aws.String(key),
+		Body:          bytes.NewReader(body),
+		ContentLength: aws.Int64(int64(len(body))),
+		ContentType:   aws.String(contentType),
+	})
+	if err != nil {
+		return fmt.Errorf("put object %q: %w", key, err)
+	}
+	return nil
+}
+
+// List returns every object whose key starts with prefix.
+func (c *Client) List(ctx context.Context, prefix string) ([]Object, error) {
+	var objects []Object
+	pages := s3.NewListObjectsV2Paginator(c.s3, &s3.ListObjectsV2Input{
+		Bucket: aws.String(c.bucket),
+		Prefix: aws.String(prefix),
+	})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list objects %q: %w", prefix, err)
+		}
+		for _, o := range page.Contents {
+			objects = append(objects, Object{
+				Key:          aws.ToString(o.Key),
+				Size:         aws.ToInt64(o.Size),
+				LastModified: aws.ToTime(o.LastModified),
+			})
+		}
+	}
+	return objects, nil
 }
